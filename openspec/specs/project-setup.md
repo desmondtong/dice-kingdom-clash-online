@@ -1,14 +1,14 @@
-# Delta: Project Setup
+# Project Setup Specification
 
-**Change ID:** `scaffold-project`
-**Affects:** tooling, configuration, local development workflow, asset paths
-**Target spec:** `openspec/specs/project-setup.md` (new)
+**Status:** Active
+**Introduced by:** `scaffold-project` (archived 2026-10-22)
+**Covers:** runtime, dependency installation, local development workflow, quality gates, folder layout, asset paths, styling sources
 
 ---
 
-## ADDED
+## Requirements
 
-### Requirement: Pinned runtime
+### Pinned runtime
 
 The project declares the Node version it supports, so every developer and agent uses the same toolchain.
 
@@ -18,7 +18,7 @@ The project declares the Node version it supports, so every developer and agent 
 - THEN the Node version from `.nvmrc` is selected
 - AND `package.json` declares a matching `engines.node` range
 
-### Requirement: Reproducible install
+### Reproducible install
 
 Dependencies install from a committed lockfile with exact versions.
 
@@ -28,7 +28,13 @@ Dependencies install from a committed lockfile with exact versions.
 - THEN all dependencies install without errors
 - AND no account, login or API key is needed
 
-### Requirement: One-command local development
+#### Scenario: Anyone can install
+- GIVEN a machine on any network with access to the public npm registry
+- WHEN the developer runs `npm ci`
+- THEN every package downloads from `https://registry.npmjs.org/` (pinned by the project `.npmrc`)
+- AND `package-lock.json` contains no private or company registry URLs
+
+### One-command local development
 
 A single command starts the client and the room server together; each side can also be started on its own.
 
@@ -44,9 +50,9 @@ A single command starts the client and the room server together; each side can a
 - THEN only that side starts, on its own fixed port (5173 or 1999)
 - AND if the port is in use, it fails with an error instead of silently switching ports
 
-### Requirement: End-to-end connectivity smoke check
+### End-to-end connectivity smoke check
 
-The placeholder client proves it can reach the placeholder room server.
+The placeholder client proves it can reach the placeholder room server. (This placeholder is replaced by the real app in `build-game-client`.)
 
 #### Scenario: Two tabs connect
 - GIVEN `npm run dev` is running
@@ -59,12 +65,12 @@ The placeholder client proves it can reach the placeholder room server.
 - THEN the tab shows "Server: disconnected"
 - AND when the server starts again, the tab reconnects automatically and shows "Server: connected"
 
-### Requirement: Quality gates
+### Quality gates
 
 The project provides scripts that check types, lint rules, tests, formatting and the production build.
 
-#### Scenario: Gates pass on the scaffold
-- GIVEN the scaffold is complete
+#### Scenario: Gates pass
+- GIVEN the code on `main`
 - WHEN the developer runs `npm run typecheck`, `npm run lint`, `npm test`, `npm run format:check` and `npm run build`
 - THEN every command exits successfully
 
@@ -74,15 +80,15 @@ The project provides scripts that check types, lint rules, tests, formatting and
 - THEN `src/` is checked against browser (DOM) types and `party/` against server (Workers) types
 - AND `shared/` is checked in both contexts
 
-### Requirement: Folder ownership skeleton
+### Folder ownership skeleton
 
 The folder layout matches the ownership table in `docs/DESIGN.md` section 9.1.
 
 #### Scenario: Skeleton exists
-- GIVEN the scaffold is complete
-- THEN the folders `shared/`, `shared/fixtures/`, `party/`, `src/`, `tests/rules/`, `tests/server/` and `tests/client/` exist in the repository
+- GIVEN the repository
+- THEN the folders `shared/`, `shared/fixtures/`, `party/`, `src/`, `tests/rules/`, `tests/server/` and `tests/client/` exist
 
-### Requirement: URL-safe asset paths
+### URL-safe asset paths
 
 All original assets are served from paths without spaces.
 
@@ -92,14 +98,20 @@ All original assets are served from paths without spaces.
 - THEN each image loads successfully
 - AND no file or folder under `public/assets/` contains a space in its name
 
+### Offline-capable styling
+
+Bootstrap CSS and the ZCOOL KuaiLe font are bundled from npm, so the app looks the same without internet access.
+
+#### Scenario: No CDN requests
+- GIVEN the client is running
+- WHEN the page loads
+- THEN Bootstrap styles are applied and headings render in ZCOOL KuaiLe
+- AND the page makes no requests to hosts other than the local dev servers
+
 ---
 
-## MODIFIED
+## Change History
 
-(None. This is the first spec.)
-
----
-
-## REMOVED
-
-(None)
+| Date | Change | Summary |
+|---|---|---|
+| 2026-10-22 | `scaffold-project` | Spec created: runtime, install, dev workflow, quality gates, folder skeleton, asset paths, offline styling |

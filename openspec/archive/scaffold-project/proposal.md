@@ -2,7 +2,7 @@
 
 **Change ID:** `scaffold-project`
 **Created:** 2026-10-22
-**Status:** Ready for approval (all decisions confirmed)
+**Status:** Archived (implemented)
 
 ---
 
@@ -102,3 +102,27 @@ Create a single npm project at the repository root with:
 | Newest major versions have integration issues (e.g. Vite 8 + Vitest 5 + ESLint 10) | Low to medium | Medium | Exact versions pinned in the lockfile; quality gates run in task 4; fall back to the previous major for the affected tool and record it in tasks.md |
 | A dependency is missed and is needed during the parallel phase | Medium | Medium | Dependency list reviewed against DESIGN.md sections 2, 7 and 8 here; if one is still missed, the blocker process in DESIGN.md 9.2 applies |
 | Corporate network or proxy blocks the npm registry | Low (registry reachable today) | High | Detected in task 1; reported as a blocker |
+
+---
+
+## Archive Information
+
+**Archived:** 2026-10-22 15:44
+**Duration:** same day (proposal created and archived on 2026-10-22)
+**Outcome:** Successfully implemented
+
+### Changes after approval
+- Install source moved from the machine's global (private) registry to the public npm registry via a project `.npmrc`, so anyone can run `npm ci`. This removed the temporary `rolldown` override. Recorded as requirement "Reproducible install → Anyone can install".
+- DEC-5 behaviour recorded as requirement "Offline-capable styling".
+- Details: `tasks.md`, section "Implementation Notes".
+
+### Files Added or Modified
+- Tooling: `package.json`, `package-lock.json`, `.npmrc`, `.nvmrc`, `tsconfig.json`, `tsconfig.base.json`, `tsconfig.app.json`, `tsconfig.server.json`, `tsconfig.node.json`, `vite.config.ts`, `vitest.config.ts`, `eslint.config.js`, `.prettierrc.json`, `.prettierignore`, `partykit.json`
+- App placeholders: `index.html`, `src/main.tsx`, `src/App.tsx`, `party/server.ts`
+- Tests: `tests/client/setup.ts`, `tests/client/App.test.tsx`
+- Skeleton: `shared/`, `shared/fixtures/`, `tests/rules/`, `tests/server/` (`.gitkeep`)
+- Assets: `public/assets/brown dice/` renamed to `public/assets/cannon-dice/`
+- Docs: `README.md`, `openspec/project.md`, `docs/DESIGN.md`
+
+### Specs Updated
+- `openspec/specs/project-setup.md` (new)

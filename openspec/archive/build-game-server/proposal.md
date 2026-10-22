@@ -137,3 +137,35 @@ These are behaviours the contracts imply but do not spell out. Both tracks build
 | PartyKit unloads idle rooms sooner than expected | Med | Low | S-DEC-6: measure during the smoke run, record it, and leave persistence for the next iteration |
 | `setTimeout` behaviour differs between the Workers runtime and Node tests | Low | Med | Controller uses an injected scheduler; the smoke run checks real timers, including one timeout |
 | Fake-transport tests miss an adapter bug | Low | Med | The adapter is small; the smoke run covers connect, messages, close and a full match |
+
+---
+
+## Archive Information
+
+**Archived:** 2026-10-22 17:23
+**Duration:** same day (proposal created and archived on 2026-10-22)
+**Outcome:** Successfully implemented; merged into `main` in a parallel track
+
+### Changes after approval
+
+- Coordinator fix on `main` (`c734a8d`): the contract test that expected the rules/RNG stubs to throw was replaced, unblocking this track.
+- Task 4.3 was run by the coordinator after merge; task 4.4 (idle-room retention) moved to `integrate-and-verify`. See `tasks.md`.
+
+### Files Added or Modified
+
+- `party/room.ts`
+- `party/server.ts`
+- `shared/rng.ts`
+- `shared/rules.ts`
+- `tests/rules/rng.test.ts`
+- `tests/rules/rules.test.ts`
+- `tests/server/helpers.ts`
+- `tests/server/room.test.ts`
+- `tests/server/server.test.ts`
+- `tests/server/smoke/README.md`
+- `tests/server/smoke/twoPlayers.ts`
+
+### Specs Updated
+
+- `openspec/specs/game-rules.md` (new)
+- `openspec/specs/room-lifecycle.md` (new)

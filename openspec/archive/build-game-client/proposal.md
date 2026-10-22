@@ -132,3 +132,61 @@ These are behaviours the contracts imply but do not spell out. Both tracks build
 | Browsers block audio before a user click | High | Low | BGM and sounds start after the first click (DESIGN.md 3); the first click is on Home |
 | Animations overrun the resolving windows | Med | Med | C-DEC-6 timings with margin; durations come from the constants, not hard-coded |
 | Mock code leaks into production | Low | Low | Guarded by `import.meta.env.DEV`; a test checks the production router has no mock routes |
+
+---
+
+## Archive Information
+
+**Archived:** 2026-10-22 17:23
+**Duration:** same day (proposal created and archived on 2026-10-22)
+**Outcome:** Successfully implemented; merged into `main` in a parallel track
+
+### Changes after approval
+
+- Integration fix on `main` (`b98b522`): the client now uses the real room server by default; the mock is used only with `?mock=`. The App test's socket mock became an inert fake.
+- Feature added on `main` (`19fde85`): Music on/off toggle (BGM only, remembered, synced across tabs). Recorded as the "Music toggle" requirement in `game-ui.md`.
+
+### Files Added or Modified
+
+- `src/App.tsx`
+- `src/audio/sfx.ts`
+- `src/components/CannonPanel.tsx`
+- `src/components/ConfirmLeave.tsx`
+- `src/components/CountdownOverlay.tsx`
+- `src/components/ErrorToast.tsx`
+- `src/components/GameBoard.tsx`
+- `src/components/HowToPlayModal.tsx`
+- `src/components/Lobby.tsx`
+- `src/components/Modal.tsx`
+- `src/components/PowerDeck.tsx`
+- `src/components/ResultModal.tsx`
+- `src/components/StatusIcons.tsx`
+- `src/components/Timer.tsx`
+- `src/components/Toast.tsx`
+- `src/components/Tower.tsx`
+- `src/components/TurnBanner.tsx`
+- `src/net/connection.ts`
+- `src/net/identity.ts`
+- `src/net/mock/mockConnection.ts`
+- `src/net/roomStore.ts`
+- `src/net/useRoom.ts`
+- `src/pages/FixtureGallery.tsx`
+- `src/pages/Home.tsx`
+- `src/pages/Room.tsx`
+- `src/styles/global.css`
+- `tests/client/App.test.tsx`
+- `tests/client/board/GameBoard.test.tsx`
+- `tests/client/board/integration.test.tsx`
+- `tests/client/net/connection.test.ts`
+- `tests/client/net/identity.test.ts`
+- `tests/client/net/mockConnection.test.ts`
+- `tests/client/net/roomStore.test.ts`
+- `tests/client/net/useRoom.test.ts`
+- `tests/client/presentation/Lobby.test.tsx`
+- `tests/client/presentation/Modals.test.tsx`
+- `tests/client/presentation/ResultModal.test.tsx`
+- `tests/client/presentation/sfx.test.ts`
+
+### Specs Updated
+
+- `openspec/specs/game-ui.md` (new)

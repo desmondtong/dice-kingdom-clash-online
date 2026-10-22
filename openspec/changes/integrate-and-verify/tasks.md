@@ -70,3 +70,7 @@
 
 | ID | Result | Notes | Fix commit |
 |---|---|---|---|
+
+## Carried over from build-game-server (2026-10-22)
+
+- [ ] Measure idle-room retention after all clients disconnect without Leave (former server task 4.4). First fix the smoke script's idle probe: it waits for a client-initiated close handshake that the local PartyKit runtime does not complete.

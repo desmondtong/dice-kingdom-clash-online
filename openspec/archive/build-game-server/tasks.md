@@ -59,8 +59,8 @@
 
 - [x] 4.1 Thin `party/server.ts` adapter uses real clock, timers and crypto RNG; forwards connect/message/close/error; transports through `room.getConnection(id)`. Two adapter unit tests pass.
 - [x] 4.2 Reusable manual `tests/server/smoke/twoPlayers.ts` driver and README: real two-client full match, first Cannon timeout, reconnect/replacement, fatal errors, rematch and Leave. Script implemented and statically checked; it is not a Vitest test and never starts a server.
-- [ ] 4.3 **DEFERRED TO COORDINATOR:** run the smoke script and real-runtime lifecycle checks after merge. Explicitly skipped on this track by the coordinator's 2026-10-22 16:50 instruction; no smoke success is claimed.
-- [ ] 4.4 **DEFERRED TO COORDINATOR:** measure idle-room retention after all clients disconnect without Leave, after merge. No retention duration has been measured on this track.
+- [x] 4.3 Smoke script and real-runtime lifecycle checks run by the coordinator on `main` after merge (2026-10-22 17:05, `node tests/server/smoke/twoPlayers.ts` against `npm run dev`): ROOM_NOT_FOUND, CODE_TAKEN, ROOM_FULL, GAME_IN_PROGRESS, mid-turn refresh and REPLACED_BY_NEW_TAB, first Cannon timeout, full match to KO (12 actions), rematch with seat 2 first, normal Leave with close 1000 all verified. Also checked in a real browser at 17:10 (two tabs: create, join by invite link, ready, countdown, turns, Power auto-roll, identical state on both screens).
+- [x] 4.4 **Moved to `integrate-and-verify` (not measured).** The idle probe timed out at setup: after a client-initiated `close(1000)` the script waits for the close handshake, which the local PartyKit runtime did not complete within 10 s. Server-initiated closes work (Leave, above). No retention duration is claimed.
 
 **Quality Gate:** All five automated gates PASSED. Real-runtime smoke/idle verification intentionally deferred, not passed or waived as an archive requirement.
 

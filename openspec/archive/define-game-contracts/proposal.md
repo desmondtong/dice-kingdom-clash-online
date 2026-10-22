@@ -129,3 +129,25 @@ The client's animations must fit inside these windows. If the client track finds
 | Stubs make the server track's tests confusing | Low | Low | `NotImplementedError` names the function and the owning change |
 | `Intl.Segmenter` (counting an emoji as one character) is missing in PartyKit's bundled server runtime or in the TypeScript `lib` setting | Low | Low | Checked first in Phase 2 by running `sanitizeName` inside `partykit dev`. If missing, fall back to counting Unicode code points (`Array.from`) and report the difference before continuing |
 | The fixture invariants are too strict for valid states | Low | Low | Invariants come from the rules and state machine only; any change goes through the coordinator |
+
+---
+
+## Archive Information
+
+**Archived:** 2026-10-22 16:21
+**Duration:** same day (proposal created and archived on 2026-10-22)
+**Outcome:** Successfully implemented
+
+### Changes after approval
+- N1 to N8 (approved): `countdownEndsAt` field; `created` kept server-only; skipped turn has no resolving window; `completed` parameter on `checkResult` / `advanceTurn` plus `skipTurn`; `RandomSource`-based RNG helpers; `shared/errors.ts`; input-bound constants; unknown fields stripped. Details: `tasks.md`, "Implementation Notes".
+- D19: after an opponent leaves, the result screen offers Back to Home only; "Stay and invite someone new" moved to the next iteration (DESIGN.md 10).
+- The "Frozen contracts" requirement also lists `shared/errors.ts` and the frozen `rules.ts` / `rng.ts` signatures, matching `openspec/project.md`.
+
+### Files Added or Modified
+- Contracts: `shared/types.ts`, `shared/constants.ts`, `shared/protocol.ts`, `shared/errors.ts`, `shared/rules.ts` (stubs), `shared/rng.ts` (stubs), `shared/fixtures/index.ts`
+- Tests: `tests/contracts/protocol.test.ts`, `tests/contracts/fixtures.test.ts`
+- Config: `vitest.config.ts`, `tsconfig.server.json` (register `tests/contracts`)
+- Docs: `docs/DESIGN.md` (2.1, 2.2, 4, 5, 6, 8, 9, 10; D16 to D19), `openspec/project.md`
+
+### Specs Updated
+- `openspec/specs/realtime-sync.md` (new)

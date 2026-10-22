@@ -46,6 +46,8 @@ The client connects to the local room server by default; there is nothing to con
 | Heal | Your tower regains 10 to 20 HP (capped at 50) |
 | Swap | The two towers swap HP |
 
+**Music:** the **Music on / Music off** button in the top-right corner mutes only the background music (sound effects keep playing). The choice is remembered, and tabs in the same browser follow it, which helps when testing with two tabs.
+
 **Timeouts:** if the Cannon timer runs out, the turn is skipped. If the Power timer runs out, the server rolls the Power Dice for you, so nobody can stall the match.
 
 **Changes from the original shared-screen game:** after round 8 the higher HP wins (the original always declared a tie); pausing with Esc was removed (one player must not be able to pause a shared online match); the Power step now has a timeout; the first player alternates on each rematch.

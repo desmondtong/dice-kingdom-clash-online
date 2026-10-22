@@ -544,3 +544,11 @@ input {
   outline: 2px solid #1f2625;
   outline-offset: 2px;
 }
+
+.music-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1100;
+  opacity: 0.9;
+}

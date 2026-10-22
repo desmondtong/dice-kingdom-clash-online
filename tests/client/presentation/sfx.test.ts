@@ -103,6 +103,24 @@ describe("sfx", () => {
     expect(AudioMock.created[0]!.play).toHaveBeenCalledOnce();
   });
 
+  it("mutes only the background music and resumes it on unmute", () => {
+    const controller = createSfx();
+    controller.unlock();
+    const bgm = AudioMock.created.find((audio) => audio.src === "/assets/game-music.mp3")!;
+    expect(bgm.play).toHaveBeenCalledTimes(1);
+    controller.setMusicMuted(true);
+    expect(bgm.pause).toHaveBeenCalledTimes(1);
+    controller.play("click");
+    expect(playedSources()).toContain("/assets/click2.mp3");
+    controller.setMusicMuted(false);
+    expect(bgm.play).toHaveBeenCalledTimes(2);
+  });
+  it("does not start the background music on unlock while muted", () => {
+    const controller = createSfx();
+    controller.setMusicMuted(true);
+    controller.unlock();
+    expect(playedSources()).not.toContain("/assets/game-music.mp3");
+  });
   it("clones and resets effects so overlapping clicks can replay safely", () => {
     const controller = createSfx();
     controller.play("click");

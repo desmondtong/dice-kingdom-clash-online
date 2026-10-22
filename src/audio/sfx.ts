@@ -21,6 +21,8 @@ export type SfxController = {
   play: (name: SoundName) => void;
   playEvent: (event: GameEvent) => void;
   dispose: () => void;
+  /** Mutes or unmutes only the background music; sound effects keep playing. */
+  setMusicMuted: (muted: boolean) => void;
 };
 
 const BGM_PATH = "/assets/game-music.mp3";
@@ -96,6 +98,7 @@ export function createSfx(): SfxController {
   let disposed = false;
   let unlocked = false;
   let backgroundMusic: HTMLAudioElement | null = null;
+  let musicMuted = false;
   const templates = new Map<SoundName, HTMLAudioElement>();
   const activeSounds = new Set<HTMLAudioElement>();
   const delayedTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -139,7 +142,24 @@ export function createSfx(): SfxController {
     if (!backgroundMusic) return;
     backgroundMusic.loop = true;
     backgroundMusic.volume = 0.2;
-    safelyPlay(backgroundMusic);
+    if (!musicMuted) safelyPlay(backgroundMusic);
+  };
+  const setMusicMuted = (muted: boolean) => {
+    musicMuted = muted;
+    if (disposed || !backgroundMusic) return;
+    if (muted) {
+      try {
+        backgroundMusic.pause();
+      } catch {
+        // Pausing must never break the UI.
+      }
+    } else {
+      try {
+        void Promise.resolve(backgroundMusic.play()).catch(() => undefined);
+      } catch {
+        // Autoplay and device failures are non-fatal presentation concerns.
+      }
+    }
   };
 
   const playEvent = (event: GameEvent) => {
@@ -175,5 +195,5 @@ export function createSfx(): SfxController {
     backgroundMusic = null;
   };
 
-  return { unlock, play, playEvent, dispose };
+  return { unlock, play, playEvent, dispose, setMusicMuted };
 }

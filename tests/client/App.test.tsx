@@ -6,6 +6,7 @@ const sounds = vi.hoisted(() => ({
   play: vi.fn(),
   playEvent: vi.fn(),
   dispose: vi.fn(),
+  setMusicMuted: vi.fn(),
 }));
 vi.mock("../../src/audio/sfx.ts", () => ({ createSfx: () => sounds }));
 // The real connection is the default; this inert fake keeps tests off the network.
@@ -98,5 +99,26 @@ describe("routed client", () => {
     render(<ProductionApp />);
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
     vi.unstubAllEnvs();
+  });
+  it("mutes and unmutes the background music and remembers the choice", () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: "Mute music" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Unmute music" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(sounds.setMusicMuted).toHaveBeenLastCalledWith(true);
+    expect(localStorage.getItem("dkc.musicMuted")).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: "Unmute music" }));
+    expect(sounds.setMusicMuted).toHaveBeenLastCalledWith(false);
+    expect(localStorage.getItem("dkc.musicMuted")).toBe("0");
+  });
+  it("starts muted when the browser remembered Music off", () => {
+    localStorage.setItem("dkc.musicMuted", "1");
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Unmute music" })).toBeInTheDocument();
+    expect(sounds.setMusicMuted).toHaveBeenCalledWith(true);
   });
 });

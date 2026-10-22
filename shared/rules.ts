@@ -10,7 +10,8 @@
  *   cannon step: applyCannon → (CANNON_RESOLVE_MS) → checkResult(match, "cannon") → advanceTurn(match, "cannon")
  *   timeouts:    Power step → applyPower(…, { auto: true }); Cannon step → skipTurn → checkResult → advanceTurn
  */
-import { NotImplementedError } from "./errors.ts";
+import { MAX_HP, POWER_ROUNDS, ROUNDS } from "./constants.ts";
+import { makeTurnId, opponent } from "./protocol.ts";
 import type {
   CannonEvent,
   GameEventBody,
@@ -30,6 +31,36 @@ export interface RuleResult<E extends GameEventBody> {
   event: E;
 }
 
+function cloneMatch(match: MatchState): MatchState {
+  return {
+    ...match,
+    towers: {
+      1: { ...match.towers[1] },
+      2: { ...match.towers[2] },
+    },
+  };
+}
+
+function withTurn(
+  match: MatchState,
+  round: number,
+  currentSeat: Seat,
+  step: MatchState["step"],
+): MatchState {
+  const next = cloneMatch(match);
+  return {
+    ...next,
+    round,
+    currentSeat,
+    step,
+    turnId: makeTurnId(next.number, round, currentSeat, step),
+  };
+}
+
+function isPowerRound(round: number): boolean {
+  return POWER_ROUNDS.includes(round);
+}
+
 /**
  * Creates match `number`: both towers at MAX_HP with no statuses, round 1, `firstSeat` to act,
  * step `power` if round 1 is a power round else `cannon`, and the matching `turnId`.
@@ -40,8 +71,23 @@ export function startMatch(input: {
   firstSeat: Seat;
   towerSeed: number;
 }): MatchState {
-  void input;
-  throw new NotImplementedError("startMatch");
+  const round = 1;
+  const step = isPowerRound(round) ? "power" : "cannon";
+
+  return {
+    number: input.number,
+    firstSeat: input.firstSeat,
+    round,
+    currentSeat: input.firstSeat,
+    step,
+    turnId: makeTurnId(input.number, round, input.firstSeat, step),
+    turnDeadline: 0,
+    towers: {
+      1: { hp: MAX_HP, shield: false, reflectNextAttack: false },
+      2: { hp: MAX_HP, shield: false, reflectNextAttack: false },
+    },
+    towerSeed: input.towerSeed,
+  };
 }
 
 /**
@@ -55,10 +101,34 @@ export function applyPower(
   rng: Rng,
   options: { auto: boolean },
 ): RuleResult<Omit<PowerEvent, "eventId">> {
-  void match;
-  void rng;
-  void options;
-  throw new NotImplementedError("applyPower");
+  const actor = match.currentSeat;
+  const power = rng.pickPower();
+  const next = withTurn(match, match.round, actor, "resolving");
+  const event: Omit<PowerEvent, "eventId"> = { type: "power", actor, power, auto: options.auto };
+
+  switch (power) {
+    case "shield":
+      next.towers[actor].shield = true;
+      break;
+    case "ricochet":
+      next.towers[opponent(actor)].reflectNextAttack = true;
+      break;
+    case "heal": {
+      const healAmount = rng.healAmount();
+      next.towers[actor].hp = Math.min(next.towers[actor].hp + healAmount, MAX_HP);
+      event.healAmount = healAmount;
+      break;
+    }
+    case "swap": {
+      const otherSeat = opponent(actor);
+      const actorHp = next.towers[actor].hp;
+      next.towers[actor].hp = next.towers[otherSeat].hp;
+      next.towers[otherSeat].hp = actorHp;
+      break;
+    }
+  }
+
+  return { match: next, event };
 }
 
 /**
@@ -68,9 +138,24 @@ export function applyPower(
  * Returns step `resolving` with a new `turnId`. Precondition: step is `cannon`.
  */
 export function applyCannon(match: MatchState, rng: Rng): RuleResult<Omit<CannonEvent, "eventId">> {
-  void match;
-  void rng;
-  throw new NotImplementedError("applyCannon");
+  const actor = match.currentSeat;
+  const dice: [number, number] = [rng.rollDie(), rng.rollDie()];
+  const rawDamage = dice[0] * dice[1];
+  const next = withTurn(match, match.round, actor, "resolving");
+  const reflected = next.towers[actor].reflectNextAttack;
+  const target = reflected ? actor : opponent(actor);
+
+  if (reflected) next.towers[actor].reflectNextAttack = false;
+
+  const shielded = next.towers[target].shield;
+  const damage = shielded ? Math.ceil(rawDamage / 2) : rawDamage;
+  if (shielded) next.towers[target].shield = false;
+  next.towers[target].hp = Math.max(next.towers[target].hp - damage, 0);
+
+  return {
+    match: next,
+    event: { type: "cannon", actor, dice, rawDamage, target, reflected, shielded, damage },
+  };
 }
 
 /**
@@ -79,8 +164,10 @@ export function applyCannon(match: MatchState, rng: Rng): RuleResult<Omit<Cannon
  * resolving window). Precondition: step is `cannon`.
  */
 export function skipTurn(match: MatchState): RuleResult<Omit<TurnSkippedEvent, "eventId">> {
-  void match;
-  throw new NotImplementedError("skipTurn");
+  return {
+    match: cloneMatch(match),
+    event: { type: "turnSkipped", actor: match.currentSeat },
+  };
 }
 
 /**
@@ -89,9 +176,17 @@ export function skipTurn(match: MatchState): RuleResult<Omit<TurnSkippedEvent, "
  * equal HP is a tie (reason `rounds`). `left` is decided by the server, not here.
  */
 export function checkResult(match: MatchState, completed: CompletedStep): MatchResult | null {
-  void match;
-  void completed;
-  throw new NotImplementedError("checkResult");
+  if (match.towers[1].hp === 0) return { winner: 2, reason: "ko" };
+  if (match.towers[2].hp === 0) return { winner: 1, reason: "ko" };
+
+  const finalSeat = opponent(match.firstSeat);
+  if (completed !== "cannon" || match.round !== ROUNDS || match.currentSeat !== finalSeat) {
+    return null;
+  }
+
+  const hp1 = match.towers[1].hp;
+  const hp2 = match.towers[2].hp;
+  return { winner: hp1 === hp2 ? "tie" : hp1 > hp2 ? 1 : 2, reason: "rounds" };
 }
 
 /**
@@ -101,7 +196,15 @@ export function checkResult(match: MatchState, completed: CompletedStep): MatchR
  * Precondition: `checkResult` returned `null`.
  */
 export function advanceTurn(match: MatchState, completed: CompletedStep): MatchState {
-  void match;
-  void completed;
-  throw new NotImplementedError("advanceTurn");
+  if (completed === "power") {
+    return withTurn(match, match.round, match.currentSeat, "cannon");
+  }
+
+  const nextSeat = opponent(match.currentSeat);
+  if (match.currentSeat !== opponent(match.firstSeat)) {
+    return withTurn(match, match.round, nextSeat, isPowerRound(match.round) ? "power" : "cannon");
+  }
+
+  const nextRound = match.round + 1;
+  return withTurn(match, nextRound, match.firstSeat, isPowerRound(nextRound) ? "power" : "cannon");
 }

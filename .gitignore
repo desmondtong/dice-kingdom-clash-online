@@ -26,3 +26,6 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea/
 *.swp
+
+# Local demo screenshots and recordings (not committed)
+media/

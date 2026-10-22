@@ -26,6 +26,7 @@ This document turns the original single-screen *Dice Kingdom Clash* ([repo](http
 | D16 | Seat discovery | The server sends each connection a private `welcome { seat, code }`; `playerId` is never broadcast (otherwise an opponent could copy it and take over the seat) |
 | D17 | Event delivery | One `state` message per change; animations play from `state.lastEvent`. No separate `event` message |
 | D18 | Errors and limits | 9 error codes incl. `INVALID_MESSAGE`; nicknames max 12 characters, limited in the client input and sanitised by the server; timings `STEP_MS` 10 s, `COUNTDOWN_MS` 3 s, `POWER_RESOLVE_MS` 2 s, `CANNON_RESOLVE_MS` 2.5 s |
+| D19 | After an opponent leaves | The result screen offers Back to Home only; the room is not reused. "Stay and invite someone new" is in the next iteration |
 
 ## 1. Game rules (canonical spec)
 
@@ -167,7 +168,6 @@ LOBBY ──(both ready)──▶ COUNTDOWN (3-2-1) ──▶ PLAYING ──(KO 
   │                           per turn:  [power]* → resolving → cannon → resolving            │
   │                           (* rounds 3 and 6 only; each step has a 10 s deadline)          │
   │                                                                                           │
-  │◀──────── opponent leaves ───────────────────────────────────────────────────────────────── │
   └─────────────── both vote rematch → COUNTDOWN (match + 1, firstSeat alternates) ◀───────────┘
 ```
 
@@ -177,7 +177,7 @@ LOBBY ──(both ready)──▶ COUNTDOWN (3-2-1) ──▶ PLAYING ──(KO 
 |---|---|
 | **Refresh** | Reconnect with the same `playerId` (sessionStorage) to the room code in the URL; receive the snapshot; the match continues |
 | **Temporary disconnect** | `partysocket` reconnects automatically. The opponent sees "Opponent disconnected, reconnecting…". The turn timer keeps running, so an absent player loses turns to timeouts and cannot stall the match |
-| **Leave button** | Sends `leave` and frees the seat. If a match was running, it ends at once and the **remaining player wins** (reason `left`, D14). The remaining player sees the result ("Opponent left, you win"), then returns to the lobby as host to invite someone new |
+| **Leave button** | Sends `leave` and frees the seat. If a match was running, it ends at once and the **remaining player wins** (reason `left`, D14). The remaining player sees the result ("Opponent left, you win") with **Back to Home** only (Rematch hidden). When they leave too, the room is empty and discarded; playing again means creating a new room (D19) |
 | **Joining mid-game** | Rejected with `GAME_IN_PROGRESS` and a friendly message |
 | **Play again** | Both press Rematch (each player can see the other's vote). Towers reset to 50 HP, round 1, first seat alternates |
 | **Host leaves the lobby** | The remaining player becomes host |
@@ -304,6 +304,7 @@ Proposal review time is extra and depends on you.
 - **Spectators** joining mid-game in read-only mode.
 - **Art, animation and sound polish**: dice tumble, tower crumble, screen shake on big hits, damage pop-ups, BGM/SFX mute toggle, responsive layout.
 - Emotes or quick reactions between players.
+- **Stay and invite someone new** after an opponent leaves: instead of Back to Home only (D19), the room returns to the lobby with the same code and the winner, as host, waits for a new opponent. Needs a rule allowing a join into a finished room with a free seat (or a "back to lobby" intent), plus tests.
 
 ## 11. Open questions
 

@@ -96,6 +96,6 @@ These came up while turning the design into code. None changes a confirmed decis
 | Mutation check of the fixture invariants | Three deliberate fixture bugs were each caught: wrong Shield damage (1 failure), a leaked `playerId` (17 failures, one per fixture), the only Swap event removed (coverage failure). The fixtures file was restored byte-for-byte |
 | Tests | 201 passing: 60 protocol tests, 139 fixture tests (8 invariants × 17 fixtures, plus 3 coverage tests), 2 existing client smoke tests. All five quality gates pass |
 
-### Open question for `build-game-server` (not a contract change)
+### Resolved question: after an opponent leaves (D19, confirmed 2026-10-22)
 
-After an opponent leaves mid-match, DESIGN.md 6 says the remaining player "returns to the lobby as host to invite someone new". There is no intent for that step, and the contract does not need one yet: the server can move the room from `finished` to `lobby` when a new player joins the free seat, or a later change can add an intent. To decide in the `build-game-server` proposal.
+The remaining player wins at once (D14) and the result screen offers **Back to Home** only; the room is not reused. An earlier line in DESIGN.md 6 ("returns to the lobby as host to invite someone new") had not been confirmed; it was removed together with the matching arrow in the state diagram (DESIGN.md 5). "Stay and invite someone new" is now in the next-iteration list (DESIGN.md 10). No contract change: the `finishedLeft` fixture already describes this state.

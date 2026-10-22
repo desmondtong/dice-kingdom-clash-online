@@ -83,6 +83,22 @@ All three must pass before any commit that completes an OpenSpec phase, and befo
 - One feature branch per OpenSpec change: `feature/{change-id}`
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`)
 
+## Change Sequence and Parallel Development
+
+The MVP is delivered as five changes; full details are in `docs/DESIGN.md` section 9.
+
+1. `scaffold-project` (sequential)
+2. `define-game-contracts` (sequential)
+3. `build-game-server` and `build-game-client` (**in parallel**)
+4. `integrate-and-verify` (sequential)
+
+Rules for the parallel phase:
+- Contracts (`shared/types.ts`, `shared/constants.ts`, `shared/fixtures/**`), config files and `package.json` are read-only. If a change to them is needed, raise a blocker; never edit them on a track branch.
+- Each track writes only to the files it owns (DESIGN.md 9.1) and only to its own spec files.
+- Each track works in its own worktree, `../dice-kingdom-clash-online-worktrees/{change-id}`, on `feature/{change-id}`.
+- Dev ports: the server track uses 1999 (PartyKit); the client track uses 5173 (Vite, mocks only).
+- The coordinator owns `main`, merges and archiving. Order: server first, then client.
+
 ## Key Principles
 1. **Server-authoritative:** one source of truth per room; both players always see the same result.
 2. **Get two people playing fast:** no accounts, one-click create, a shareable code or link.

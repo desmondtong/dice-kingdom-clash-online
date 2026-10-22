@@ -22,6 +22,7 @@ This document turns the original single-screen *Dice Kingdom Clash* ([repo](http
 | D12 | Heal amount | **Keep the original roll** `max(ceil(rand × 20), 10)`: 10 HP 50% of the time, 11–20 HP 5% each (average 12.75 HP) |
 | D13 | Power step timeout | The server **auto-rolls** the Power Dice |
 | D14 | Leave button | Clicking Leave during a match ends it at once and the **remaining player wins** (reason `left`). A disconnect or refresh is *not* a leave: the seat is held, and the grace-period forfeit is in the next iteration |
+| D15 | Delivery | Five OpenSpec changes; `build-game-server` and `build-game-client` run **in parallel** after the contracts are frozen (section 9) |
 
 ## 1. Game rules (canonical spec)
 
@@ -264,20 +265,56 @@ dice-kingdom-clash-online/
     audio/sfx.ts         # sound map + BGM control
     styles/global.css    # ported from original style.css
   public/assets/         # original artwork and sounds
-  tests/rules.test.ts    # unit tests for the rule engine (Vitest)
+  shared/fixtures/       # sample RoomState snapshots for every phase (client mocks, tests)
+  tests/
+    rules/  server/  client/   # Vitest tests, one folder per owning track
 ```
 
 Local run: `npx partykit dev` (ws://localhost:1999) and `npm run dev` (http://localhost:5173). Test with two tabs, two browsers, or a second device on the same Wi-Fi.
 
-## 9. Two-hour build plan
+## 9. Delivery plan: OpenSpec changes on 2 parallel tracks (D15)
 
-| Time | Work |
+The MVP is delivered as five OpenSpec changes. Two of them run in parallel, split at the client/server contract.
+
+```
+1. scaffold-project          sequential   project setup, npm scripts, all dependencies, asset folder rename
+2. define-game-contracts     sequential   shared types, messages, error codes, constants, rule signatures, sample states
+3. ┌─ build-game-server       parallel     rules engine + PartyKit room (turns, dice, timers, lifecycle)
+   └─ build-game-client       parallel     screens, board, animations, sound, connection hook (against mocks)
+4. integrate-and-verify      sequential   connect client to the real server; two-tab test of every scenario
+```
+
+### 9.1 Changes, specs and file ownership
+
+| Change | Writes code in | Writes spec(s) in `openspec/specs/` |
+|---|---|---|
+| `scaffold-project` | `package.json`, lockfile, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, ESLint config, `partykit.json`, `index.html`, placeholder `src/main.tsx` and `party/server.ts`, asset folder rename (`brown dice/` → `cannon-dice/`) | `project-setup.md` |
+| `define-game-contracts` | `shared/types.ts`, `shared/constants.ts`, `shared/rules.ts` and `shared/rng.ts` **signatures only** (stubs), `shared/fixtures/` (sample `RoomState`s for every phase) | `realtime-sync.md` (authority, protocol, obligations of both sides) |
+| `build-game-server` | `shared/rules.ts` and `shared/rng.ts` (implementation), `party/**`, `tests/rules/**`, `tests/server/**` | `game-rules.md`, `room-lifecycle.md` |
+| `build-game-client` | `src/**`, `public/**`, `tests/client/**` | `game-ui.md` |
+| `integrate-and-verify` | Any file, limited to integration fixes | MODIFIED sections of the above, where behaviour changes |
+
+### 9.2 Rules that keep the parallel tracks from conflicting
+
+1. **Contracts first, then frozen.** `define-game-contracts` is archived and merged to `main` before either parallel track starts. During the parallel phase, `shared/types.ts`, `shared/constants.ts`, `shared/fixtures/**`, all config files and `package.json` are **read-only** for both tracks. If a track needs a change, it stops and reports a blocker; the coordinator makes the change on `main` and both tracks rebase.
+2. **No new dependencies during the parallel phase.** All dependencies are added in `scaffold-project`. A track that needs another one raises a blocker (same process as rule 1).
+3. **Strict file ownership** as in 9.1. A track never edits files owned by the other.
+4. **One git worktree and branch per track:** `../dice-kingdom-clash-online-worktrees/{change-id}` on `feature/{change-id}`, each with its own `npm install`. Nobody works on `main` directly.
+5. **Separate dev ports.** The server track uses PartyKit on port 1999 only; the client track uses Vite on port 5173 with mock data (no PartyKit). Only `integrate-and-verify` runs both together.
+6. **Mocks instead of waiting.** The client builds against `shared/fixtures/` and a mock room connection with the same interface as the real one. The server is tested with unit tests and fake connections.
+7. **Separate spec files.** Each parallel change writes delta specs only for the spec files it owns (9.1), so archiving cannot conflict.
+8. **Reviewing and merging.** The two parallel proposals are written and reviewed together. Each branch must pass the quality gates and be rebased onto `main` before merging. Merge and archive order: `build-game-server`, then `build-game-client`. The coordinator owns `main`, all merges and all archiving.
+
+### 9.3 Rough timing
+
+| Step | Estimate |
 |---|---|
-| 0:00 to 0:15 | Scaffold Vite + React + TS + PartyKit; copy and rename assets; port global CSS and font |
-| 0:15 to 0:40 | `shared/`: types, constants, RNG, pure rules engine plus quick unit tests (attack order, Shield, Ricochet, Heal cap, Swap, KO, round-8 result) |
-| 0:40 to 1:05 | `party/server.ts`: create/join/full/not-found, seat binding, reconnect, lobby/ready/countdown, turn loop with deadlines and resolving windows, rematch, leave |
-| 1:05 to 1:40 | Client: Home, How To Play, Lobby, Game board, Result; state rendering, event-driven animations and sounds |
-| 1:40 to 2:00 | Two-tab test pass: refresh mid-turn, double-click, out-of-turn click, third player, leave, rematch; polish |
+| `scaffold-project` | about 15 min |
+| `define-game-contracts` | about 15 min |
+| `build-game-server` and `build-game-client` (in parallel) | about 45 to 60 min |
+| `integrate-and-verify` | about 20 to 30 min |
+
+Proposal review time is extra and depends on you.
 
 ## 10. Next iteration / good-to-have
 

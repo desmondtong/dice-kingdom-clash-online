@@ -1,48 +1,58 @@
-import { useState } from "react";
-import usePartySocket from "partysocket/react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { BrowserRouter, Link, Route, Routes } from "react-router";
+import { createSfx } from "./audio/sfx.ts";
+import Home from "./pages/Home.tsx";
+import Room from "./pages/Room.tsx";
+import "./styles/global.css";
 
-// Placeholder for the scaffold-project change: proves the client can reach the local
-// room server. Replaced by the real app in build-game-client.
-
-type ServerStatus = "connecting" | "connected" | "disconnected";
-
-const SERVER_PORT = 1999;
-const CHECK_ROOM = "scaffold-check";
-
-const STATUS_LABEL: Record<ServerStatus, string> = {
-  connecting: "connecting…",
-  connected: "connected",
-  disconnected: "disconnected",
-};
-
-const STATUS_BADGE: Record<ServerStatus, string> = {
-  connecting: "text-bg-warning",
-  connected: "text-bg-success",
-  disconnected: "text-bg-danger",
-};
-
+const FixtureGallery = import.meta.env.DEV
+  ? lazy(() => import("./pages/FixtureGallery.tsx"))
+  : null;
 export default function App() {
-  const [status, setStatus] = useState<ServerStatus>("connecting");
-
-  usePartySocket({
-    host: `${window.location.hostname}:${SERVER_PORT}`,
-    room: CHECK_ROOM,
-    onOpen: () => setStatus("connected"),
-    onClose: () => setStatus("disconnected"),
+  const [audio] = useState(() => {
+    let current = createSfx();
+    return {
+      start: () => {
+        current = createSfx();
+      },
+      sfx: {
+        unlock: () => current.unlock(),
+        play: (name: import("./audio/sfx.ts").SoundName) => current.play(name),
+        playEvent: (event: import("../shared/types.ts").GameEvent) => current.playEvent(event),
+        dispose: () => current.dispose(),
+      },
+    };
   });
-
+  const sfx = audio.sfx;
+  useEffect(() => {
+    audio.start();
+    return () => sfx.dispose();
+  }, [audio, sfx]);
   return (
-    <main className="container py-5 text-center">
-      <h1 className="display-4" style={{ fontFamily: '"ZCOOL KuaiLe", sans-serif' }}>
-        Dice Kingdom Clash Online
-      </h1>
-      <p className="lead">Project scaffold</p>
-      <span className={`badge fs-5 ${STATUS_BADGE[status]}`} data-testid="server-status">
-        Server: {STATUS_LABEL[status]}
-      </span>
-      <div className="mt-4">
-        <img src="/assets/cannon-dice/6.png" alt="Cannon dice showing 6" width={64} height={64} />
+    <BrowserRouter>
+      <div
+        onClickCapture={() => {
+          sfx.unlock();
+          sfx.play("click");
+        }}
+      >
+        <Suspense fallback={<p>Loading…</p>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/room/:code" element={<Room sfx={sfx} />} />
+            {FixtureGallery && <Route path="/dev/fixtures" element={<FixtureGallery />} />}
+            <Route
+              path="*"
+              element={
+                <main className="room-shell">
+                  <h1>Page not found</h1>
+                  <Link to="/">Back to Home</Link>
+                </main>
+              }
+            />
+          </Routes>
+        </Suspense>
       </div>
-    </main>
+    </BrowserRouter>
   );
 }

@@ -1,33 +1,98 @@
-import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App.tsx";
-
-type SocketOptions = { onOpen?: () => void; onClose?: () => void };
-let lastOptions: SocketOptions = {};
-
-// No real network in unit tests: capture the socket callbacks instead.
-vi.mock("partysocket/react", () => ({
-  default: (options: SocketOptions) => {
-    lastOptions = options;
-    return {};
+const sounds = vi.hoisted(() => ({
+  unlock: vi.fn(),
+  play: vi.fn(),
+  playEvent: vi.fn(),
+  dispose: vi.fn(),
+}));
+vi.mock("../../src/audio/sfx.ts", () => ({ createSfx: () => sounds }));
+vi.mock("partysocket", () => ({
+  default: class {
+    constructor() {
+      throw new Error("Tests must not open a real socket");
+    }
   },
 }));
-
-describe("scaffold placeholder App", () => {
-  it("renders the app title", () => {
+beforeEach(() => {
+  sessionStorage.clear();
+  localStorage.clear();
+  window.history.replaceState(null, "", "/");
+  vi.clearAllMocks();
+  vi.unstubAllEnvs();
+});
+describe("routed client", () => {
+  it("shows Home without opening any connection", () => {
     render(<App />);
     expect(screen.getByRole("heading", { name: "Dice Kingdom Clash Online" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Room" })).toBeDisabled();
   });
-
-  it("shows the server connection status", () => {
+  it("limits pasted grapheme emoji to twelve", () => {
     render(<App />);
-    const status = screen.getByTestId("server-status");
-    expect(status).toHaveTextContent("Server: connecting…");
-
-    act(() => lastOptions.onOpen?.());
-    expect(status).toHaveTextContent("Server: connected");
-
-    act(() => lastOptions.onClose?.());
-    expect(status).toHaveTextContent("Server: disconnected");
+    fireEvent.change(screen.getByLabelText("Nickname"), { target: { value: "👨‍👩‍👧‍👦".repeat(14) } });
+    expect(screen.getByLabelText("Nickname")).toHaveValue("👨‍👩‍👧‍👦".repeat(12));
+  });
+  it("validates code alphabet before joining and uppercases input", async () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Nickname"), { target: { value: "Alex" } });
+    fireEvent.change(screen.getByLabelText("Room code"), { target: { value: "ab0d" } });
+    fireEvent.click(screen.getByRole("button", { name: "Join Room" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("valid 4-character");
+    expect(window.location.pathname).toBe("/");
+    fireEvent.change(screen.getByLabelText("Room code"), { target: { value: "kx7p" } });
+    expect(screen.getByLabelText("Room code")).toHaveValue("KX7P");
+    fireEvent.click(screen.getByRole("button", { name: "Join Room" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/room/KX7P"));
+    expect(localStorage.getItem("dkc.nickname")).toBe("Alex");
+  });
+  it("creates a valid room code", async () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Nickname"), { target: { value: "Desmond" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create Room" }));
+    await waitFor(() =>
+      expect(window.location.pathname).toMatch(/^\/room\/[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/),
+    );
+  });
+  it("opens and closes the tutorial", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "How To Play" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("asks for nickname before connecting on a direct invite", () => {
+    window.history.replaceState(null, "", "/room/KX7P");
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Join room KX7P" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Join Room" })).toBeDisabled();
+  });
+  it("reconnects a known room automatically after refresh", async () => {
+    sessionStorage.setItem("dkc.rooms", '["KX7P"]');
+    window.history.replaceState(null, "", "/room/KX7P?mock=lobbyWaiting");
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ready/ });
+    expect(screen.queryByRole("heading", { name: "Join room KX7P" })).not.toBeInTheDocument();
+  });
+  it("rejects invalid invite codes locally", () => {
+    window.history.replaceState(null, "", "/room/AB0D");
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Invalid room code" })).toBeInTheDocument();
+  });
+  it("lists every fixture for both seats in development", async () => {
+    window.history.replaceState(null, "", "/dev/fixtures");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Room fixture gallery" });
+    expect(screen.getAllByRole("link", { name: "Seat 1" })).toHaveLength(17);
+    expect(screen.getAllByRole("link", { name: "Seat 2" })).toHaveLength(17);
+  });
+  it("does not expose the fixture route in production", async () => {
+    vi.stubEnv("DEV", false);
+    vi.resetModules();
+    const { default: ProductionApp } = await import("../../src/App.tsx");
+    window.history.replaceState(null, "", "/dev/fixtures");
+    render(<ProductionApp />);
+    expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+    vi.unstubAllEnvs();
   });
 });

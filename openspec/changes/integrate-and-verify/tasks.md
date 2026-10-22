@@ -2,7 +2,7 @@
 
 **Change ID:** `integrate-and-verify`
 **Status:** Draft (finalise after both parallel tracks are archived)
-**Decisions:** I-DEC-1 to I-DEC-4 (see `proposal.md`), not yet confirmed
+**Decisions:** I-DEC-1 to I-DEC-4 confirmed as option (a) (see `proposal.md`)
 **Branch:** `feature/integrate-and-verify` from `main` after both archives; worktree optional (no other track runs at the same time)
 **Writes:** any file, limited to integration fixes (I-DEC-4)
 
@@ -14,7 +14,8 @@
 - [ ] 0.2 Read both archived `tasks.md` Implementation Notes; update `verification-matrix.md` rows to match what was built
 - [ ] 0.3 Record the S-DEC-6 idle-room measurement in the proposal's known limitations and row D11
 - [ ] 0.4 Write the spec deltas (see `specs/PENDING.md`)
-- [ ] 0.5 Confirm I-DEC-1 to I-DEC-4; set status to Approved; commit to `main`
+- [x] 0.5a I-DEC-1 to I-DEC-4 confirmed (2026-10-22)
+- [ ] 0.5 Set status to Approved; commit to `main`
 
 ---
 

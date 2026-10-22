@@ -2,7 +2,7 @@
 
 **Change ID:** `integrate-and-verify`
 **Created:** 2026-10-22
-**Status:** Draft. Finalise after `build-game-server` and `build-game-client` are both archived (see "Finalising this draft"). Decisions I-DEC-1 to I-DEC-4 need confirmation.
+**Status:** Draft. Finalise after `build-game-server` and `build-game-client` are both archived (see "Finalising this draft"). Decisions I-DEC-1 to I-DEC-4 confirmed 2026-10-22 (option (a) each).
 **Track:** sequential, after both parallel tracks (DESIGN.md 9)
 
 ---
@@ -56,22 +56,22 @@ The original brief asks for a truly networked product: two real people join the 
 - Both halves keep their split: rules and lifecycle on the server, rendering only on the client. A fix must not move outcome logic to the client.
 - Browser storage matters for testing: `playerId` is in `sessionStorage` (per tab), the nickname in `localStorage` (shared). Some browsers copy `sessionStorage` when a tab is **duplicated**, which makes the copy the same player (`REPLACED_BY_NEW_TAB`). Tests open the second player with a fresh tab (paste the invite link), a private window or a second browser; the duplicate-tab case is tested on purpose as the second-tab scenario.
 
-## Decisions to Confirm
+## Decisions (confirmed 2026-10-22)
 
 **I-DEC-1: Who runs the matrix.**
-- **(a) Recommended:** I run every row with two tabs in the in-app browser, plus the Node smoke script and forged messages from the browser console, and record the results. You finish with one manual match against yourself in two windows, to judge the feel.
+- **(a) Recommended, confirmed:** I run every row with two tabs in the in-app browser, plus the Node smoke script and forged messages from the browser console, and record the results. You finish with one manual match against yourself in two windows, to judge the feel.
 - (b) You run the matrix manually from the checklist.
 
 **I-DEC-2: Automated end-to-end tests.**
-- **(a) Recommended:** no new test framework. Rules and lifecycle are already covered by unit tests, and the server smoke script plays a full match; the matrix covers the browser.
-- (b) Add Playwright for a scripted two-browser test (a new dev dependency and browser download; about 20 to 30 minutes extra).
+- **(a) Recommended, confirmed:** no new test framework. Rules and lifecycle are already covered by unit tests, and the server smoke script plays a full match; the matrix covers the browser.
+- (b) Add Playwright (not now; can be revisited later) for a scripted two-browser test (a new dev dependency and browser download; about 20 to 30 minutes extra).
 
 **I-DEC-3: Playing from a second device on the same Wi-Fi.**
-- **(a) Recommended:** out of scope. The demo runs on one laptop; X1 connects to `localhost:1999`.
-- (b) In scope: the client connects to `${location.hostname}:1999` and Vite runs with `--host`, so a phone or second laptop can join. A small change to X1 and the npm scripts, plus one extra test row.
+- **(a) Recommended, confirmed:** out of scope. The demo runs on one laptop; X1 connects to `localhost:1999`.
+- (b) Not now; can be revisited later. In scope would mean: the client connects to `${location.hostname}:1999` and Vite runs with `--host`, so a phone or second laptop can join. A small change to X1 and the npm scripts, plus one extra test row.
 
 **I-DEC-4: How fixes are handled.**
-- **(a) Recommended:** a bug where the code does not match an approved spec is fixed directly, with a regression test, and logged. A fix that would change an approved behaviour, a contract or a cross-track agreement stops and comes back to you first.
+- **(a) Recommended, confirmed:** a bug where the code does not match an approved spec is fixed directly, with a regression test, and logged. A fix that would change an approved behaviour, a contract or a cross-track agreement stops and comes back to you first.
 
 ## Success Criteria
 
@@ -100,4 +100,4 @@ This draft was written while both tracks were still in progress. Before approval
 1. Read the Implementation Notes and deviations in both archived changes, and add, change or remove matrix rows to match.
 2. Add the S-DEC-6 idle-room measurement to the known limitations.
 3. Write the spec deltas in `specs/` against the then-existing `openspec/specs/` files (see `specs/PENDING.md`).
-4. Confirm I-DEC-1 to I-DEC-4 and change the status to Approved.
+4. Change the status to Approved (I-DEC-1 to I-DEC-4 are already confirmed).

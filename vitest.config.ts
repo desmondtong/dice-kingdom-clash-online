@@ -12,7 +12,11 @@ export default mergeConfig(
           test: {
             name: "node",
             environment: "node",
-            include: ["tests/rules/**/*.test.ts", "tests/server/**/*.test.ts"],
+            include: [
+              "tests/contracts/**/*.test.ts",
+              "tests/rules/**/*.test.ts",
+              "tests/server/**/*.test.ts",
+            ],
           },
         },
         {

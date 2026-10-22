@@ -96,3 +96,12 @@ All dice, powers and heal amounts come from `crypto.getRandomValues` on the serv
 ## REMOVED
 
 (None)
+
+
+## Implementation Notes (2026-10-22)
+
+All frozen rule/RNG exports and signatures are unchanged. Rules return fresh match/tower objects, preserve server-owned deadlines, and emit event bodies without eventId; the room assigns deadlines and monotonically increasing event IDs. Seventeen RNG/rule tests cover mappings, immutability, canonical attack order, statuses, Heal cap, first-seat ordering, power rounds, KO and round-8 outcomes. All five automated gates passed after rebasing onto `c734a8d` (270 tests total).
+
+A KO-producing Cannon event leaves a 0-HP tower in playing/resolving for the prescribed CANNON_RESOLVE_MS window before the room publishes finished. This is required by realtime-sync even though the static playing sample fixtures have positive HP. Owned snapshot tests allow 0 HP only during resolving, without changing frozen fixtures or contract tests.
+
+The coordinator removed the obsolete frozen stub-throw check on main in `c734a8d`; the server track did not edit that test. Runtime smoke and idle-room measurement are explicitly coordinator-owned after merge and remain pending, as recorded in tasks.md. No merge or archive has been performed by this track.

@@ -137,3 +137,12 @@ Source: DESIGN.md 4 to 6, D14, D19, and the cross-track agreements X1 to X8 in `
 ## REMOVED
 
 (None)
+
+
+## Implementation Notes (2026-10-22)
+
+The implemented controller is independent of PartyKit and injects transport, clock, scheduler, gameplay RNG and a separate cosmetic tower-seed source. Snapshot construction reads only public player information; private identity bindings never enter the serialized state. A fresh generation token accompanies each timer's turnId guard because Power and Cannon resolving windows in the same turn have equal frozen turnIds. Disconnect/reconnect state broadcasts do not reset or extend the active timer.
+
+Stale tokens are rejected before checking the current seat/step so a duplicate or late click gets `STALE_ACTION` even after the timer advanced to another seat. An intent using the current token during resolving gets `INVALID_PHASE`. Active-step deadlines are now + STEP_MS; resolving deadlines are now + the appropriate animation duration; finished deadlines are 0. Ready flags in countdown/playing indicate both players consented to the new match, including after rematch; flags are false in finished.
+
+Fifty controller tests and two adapter tests passed as part of the 270-test, five-gate post-rebase verification. **Real PartyKit smoke testing and idle-room retention measurement remain deferred to the coordinator after merge, by explicit instruction at 16:50 on 2026-10-22.** No runtime success or expiry duration is claimed here. No source-of-truth spec is archived or updated on this track.

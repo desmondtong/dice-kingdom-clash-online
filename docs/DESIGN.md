@@ -1,6 +1,6 @@
 # Dice Kingdom Clash Online: Multiplayer Design and Roadmap
 
-**Status:** Design revision 3 (all open questions resolved). No implementation yet.
+**Status:** Design revision 4. Contracts are frozen in `shared/` (`define-game-contracts`); the game itself is not built yet.
 
 This document turns the original single-screen *Dice Kingdom Clash* ([repo](https://github.com/desmondtong/Game-Project-Dice-Kingdom-Clash), HTML/CSS/JS, two players sharing one screen) into a real-time, two-player networked game. The client is React (Vite + TypeScript) and the authoritative room server is PartyKit, both running locally on a laptop.
 
@@ -23,6 +23,9 @@ This document turns the original single-screen *Dice Kingdom Clash* ([repo](http
 | D13 | Power step timeout | The server **auto-rolls** the Power Dice |
 | D14 | Leave button | Clicking Leave during a match ends it at once and the **remaining player wins** (reason `left`). A disconnect or refresh is *not* a leave: the seat is held, and the grace-period forfeit is in the next iteration |
 | D15 | Delivery | Five OpenSpec changes; `build-game-server` and `build-game-client` run **in parallel** after the contracts are frozen (section 9) |
+| D16 | Seat discovery | The server sends each connection a private `welcome { seat, code }`; `playerId` is never broadcast (otherwise an opponent could copy it and take over the seat) |
+| D17 | Event delivery | One `state` message per change; animations play from `state.lastEvent`. No separate `event` message |
+| D18 | Errors and limits | 9 error codes incl. `INVALID_MESSAGE`; nicknames max 12 characters, limited in the client input and sanitised by the server; timings `STEP_MS` 10 s, `COUNTDOWN_MS` 3 s, `POWER_RESOLVE_MS` 2 s, `CANNON_RESOLVE_MS` 2.5 s |
 
 ## 1. Game rules (canonical spec)
 
@@ -70,61 +73,31 @@ The server is the only source of truth. Clients send **intents** (for example, "
  click "Roll"  ── intent ──────▶  validate seat/phase/step/turnId
                                   roll dice (server RNG)
                                   rules.applyCannon(...)
-               ◀── event + state ─ broadcast version N ── event + state ──▶  animate + sound + render
+               ◀──── state N ─── broadcast version N ─── state N ──────▶  animate + sound + render
 ```
 
 ### 2.1 Server state (one room = one PartyKit instance)
 
-```ts
-type Seat  = 1 | 2;
-type Phase = "lobby" | "countdown" | "playing" | "finished";
-type Step  = "power" | "cannon" | "resolving";
-type Power = "shield" | "ricochet" | "heal" | "swap";
+**Source of truth: [`shared/types.ts`](../shared/types.ts)** (frozen by `define-game-contracts`; spec: `openspec/specs/realtime-sync.md`). Summary:
 
-interface TowerState {
-  hp: number;                 // 0..50
-  shield: boolean;            // halve the next hit taken
-  reflectNextAttack: boolean; // this seat's next attack bounces back (Ricochet placed by the opponent)
-}
+| Type | Holds |
+|---|---|
+| `RoomState` | `code`, `phase` (`lobby` / `countdown` / `playing` / `finished`), `hostSeat`, `players` (per seat: `name`, `connected`, `ready`), `match`, `countdownEndsAt`, `lastEvent`, `result`, `rematchVotes`, `version`, `serverNow`. **No `playerId`** (D16) |
+| `MatchState` | `number`, `firstSeat`, `round`, `currentSeat`, `step` (`power` / `cannon` / `resolving`), `turnId`, `turnDeadline`, `towers` (per seat: `hp`, `shield`, `reflectNextAttack`), `towerSeed`. `null` only in `lobby`; in `countdown` it holds the match about to start |
+| `GameEvent` | `cannon` (dice, rawDamage, target, reflected, shielded, damage), `power` (power, healAmount, auto), `turnSkipped`; each with `eventId` and `actor` |
+| `MatchResult` | `winner` (seat or `tie`), `reason` (`ko` / `rounds` / `left`) |
 
-interface RoomState {
-  code: string;
-  created: boolean;           // false until an intent=create connection arrives
-  phase: Phase;
-  hostSeat: Seat;
-  players: Partial<Record<Seat, { name: string; connected: boolean; ready: boolean }>>;
-  match: {
-    number: number;           // 1, 2, 3... (rematches)
-    firstSeat: Seat;          // alternates each rematch (D7)
-    round: number;            // 1..8
-    currentSeat: Seat;
-    step: Step;
-    turnId: string;           // e.g. "m2-r3-s1-power"; rejects stale or duplicate intents
-    turnDeadline: number;     // server epoch ms
-    towers: Record<Seat, TowerState>;
-    towerSeed: number;        // seeds the cosmetic dice faces so both screens match
-  } | null;
-  lastEvent: GameEvent | null;
-  result: { winner: Seat | "tie"; reason: "ko" | "rounds" | "left" } | null;
-  rematchVotes: Seat[];
-  version: number;            // increments on every change
-  serverNow: number;          // sent with every broadcast, for clock offset
-}
-
-type GameEvent =
-  | { eventId: number; type: "cannon"; actor: Seat; dice: [number, number]; rawDamage: number;
-      target: Seat; reflected: boolean; shielded: boolean; damage: number }
-  | { eventId: number; type: "power"; actor: Seat; power: Power; healAmount?: number; auto: boolean }
-  | { eventId: number; type: "turnSkipped"; actor: Seat };
-```
+Sample states for every phase and step: [`shared/fixtures/index.ts`](../shared/fixtures/index.ts).
 
 Server-only data (never broadcast): the map `connectionId → { playerId, seat }`, and timer handles.
 
 ### 2.2 Message protocol
 
-Identity and intent are sent **once, as connection query parameters**: `?playerId=…&name=…&intent=create|join`. They are never read from game messages.
+**Source of truth: `ClientMessage` and `ServerMessage` in [`shared/types.ts`](../shared/types.ts)**; untrusted input is parsed only by [`shared/protocol.ts`](../shared/protocol.ts).
 
-Client to server (intents only):
+Identity and intent are sent **once, as connection query parameters**: `?playerId=…&name=…&intent=create|join`. They are never read from game messages. Invalid connect parameters get `INVALID_MESSAGE` and the connection is closed.
+
+Client to server (intents only; unknown extra fields are ignored):
 
 | Message | Fields | Accepted only when |
 |---|---|---|
@@ -138,9 +111,11 @@ Server to client:
 
 | Message | Purpose |
 |---|---|
-| `state` | Full `RoomState` snapshot |
-| `event` | A `GameEvent` that triggers animation and sound on both clients |
-| `error` | `{ code, message }` where `code` is one of `ROOM_NOT_FOUND`, `CODE_TAKEN`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `NOT_YOUR_TURN`, `STALE_ACTION`, `INVALID_PHASE`, `REPLACED_BY_NEW_TAB` |
+| `welcome` | `{ seat, code }`, sent privately to one connection after every successful connect or reconnect, before its first `state` (D16) |
+| `state` | Full `RoomState` snapshot. Animations and sounds are triggered by `state.lastEvent` when its `eventId` is new; there is no separate event message (D17) |
+| `error` | `{ code, message }`. `message` is for logs; the client shows its own text per code |
+
+Error codes (D18): **fatal**, the server closes the connection and the client does not auto-reconnect: `ROOM_NOT_FOUND`, `CODE_TAKEN`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `REPLACED_BY_NEW_TAB`. **Non-fatal**, state unchanged: `NOT_YOUR_TURN`, `STALE_ACTION`, `INVALID_PHASE`, `INVALID_MESSAGE` (malformed JSON, unknown type, wrong field types, oversized message).
 
 ## 3. Refactoring the original code (rules reference only, D9)
 
@@ -172,14 +147,15 @@ Delays such as the 2-second Power Dice reveal and the tower crumble animation be
 | **Game rules / win-lose** | Pure functions in `shared/rules.ts`, run only on the server; unit-testable without a network |
 | **Cheating** | Clients can't choose dice values, damage, HP or power dice. Every intent is checked against phase, step, seat and `turnId`. The seat is bound to the connection, so a player cannot act as the opponent |
 | **Duplicate actions** | The first intent matching the current `turnId` is accepted; the step then becomes `resolving` and `turnId` changes, so any repeat gets `STALE_ACTION`. The client also disables the button immediately after clicking |
-| **Out-of-order / stale updates** | `state.version` increases on every change, and the client ignores snapshots that are not newer. `eventId` is recorded so an animation is never replayed after a reconnect |
+| **Out-of-order / stale updates** | `state.version` increases on every change, and the client ignores snapshots that are not newer. The client records the last played `lastEvent.eventId`, so an animation is never replayed after a reconnect |
+| **Malformed or hostile messages** | Every client message goes through `parseClientMessage` (size limit, JSON, known type, field types; unknown fields stripped). Invalid input gets `INVALID_MESSAGE` and changes nothing |
 | **Both sides seeing different results** | Clients render only the server snapshot; cosmetic tower faces are seeded (section 3) |
-| **Animation pacing** | After every roll the server holds `step = "resolving"` for a fixed window (Power reveal about 2 s, Cannon about 1.5 s plus the crumble) so both clients animate together, then advances. Inputs during `resolving` are rejected |
+| **Animation pacing** | After every roll the server holds `step = "resolving"` for a fixed window (`POWER_RESOLVE_MS` 2 s, `CANNON_RESOLVE_MS` 2.5 s for the roll plus the crumble) so both clients animate together, then advances. On a KO the match finishes when the cannon window ends. A skipped turn has no window. Inputs during `resolving` get `INVALID_PHASE` |
 | **Timer fairness** | The server enforces `turnDeadline`. Clients display `turnDeadline − (Date.now() + clockOffset)`, with `clockOffset` estimated from `serverNow`. Timeouts follow rule 1.2.3 |
 | **Room not found** | `intent=join` on a room that was never created gets `ROOM_NOT_FOUND`, and the connection closes |
 | **Code collision** | `intent=create` on a room that already exists gets `CODE_TAKEN`; the client retries with a new code. Codes are 4 characters from an alphabet without look-alikes (no 0/O, 1/I/L) |
 | **Room full / joining mid-game** | A third distinct `playerId` gets `ROOM_FULL` (lobby) or `GAME_IN_PROGRESS` (match running) |
-| **Reconnect identity** | `playerId` in sessionStorage (one per tab, survives refresh). The server re-attaches it to its existing seat and sends the current snapshot |
+| **Reconnect identity** | `playerId` in sessionStorage (one per tab, survives refresh). The server re-attaches it to its existing seat and sends `welcome` plus the current snapshot |
 | **Same player in a second tab** | The newest connection takes over the seat; the old one gets `REPLACED_BY_NEW_TAB` and is closed |
 
 ## 5. Turn and room state machine
@@ -241,7 +217,7 @@ All files from the original `Assets/` folder are in `public/assets/`. The only f
 | `swap-dice.mp3` + `swap-dice-2.mp3` | Swap |
 | `click.mp3`, `destroy-tower.mp3` | Unused for now (kept) |
 
-Sounds are triggered by server `event` messages, so **both players hear the same thing at the same moment**, including the opponent's actions.
+Sounds are triggered by `state.lastEvent` in server snapshots, so **both players hear the same thing at the same moment**, including the opponent's actions.
 
 ## 8. Project structure
 
@@ -251,10 +227,12 @@ dice-kingdom-clash-online/
   party/
     server.ts            # room lifecycle, connection↔seat map, intent validation, timers, broadcast
   shared/
-    types.ts             # RoomState, GameEvent, messages, error codes
-    constants.ts         # MAX_HP=50, ROUNDS=8, POWER_ROUNDS=[3,6], STEP_MS=10000, resolve windows
-    rules.ts             # pure: startMatch, applyPower, applyCannon, advanceTurn, checkResult
+    types.ts             # RoomState, MatchState, GameEvent, Client/ServerMessage, Rng
+    constants.ts         # rules, timing (D18), room code, name limit, error codes
+    protocol.ts          # parseClientMessage, parseConnectParams, sanitizeName, limitNameInput, makeTurnId
+    rules.ts             # pure: startMatch, applyPower, applyCannon, skipTurn, checkResult, advanceTurn
     rng.ts               # rollDie(), pickPower(), healAmount() on crypto.getRandomValues
+    errors.ts            # NotImplementedError for contract stubs
   src/
     main.tsx  App.tsx    # router: / and /room/:code
     net/useRoom.ts       # partysocket, version/eventId filtering, clock offset, error handling
@@ -267,7 +245,7 @@ dice-kingdom-clash-online/
   public/assets/         # original artwork and sounds
   shared/fixtures/       # sample RoomState snapshots for every phase (client mocks, tests)
   tests/
-    rules/  server/  client/   # Vitest tests, one folder per owning track
+    contracts/  rules/  server/  client/   # Vitest tests, one folder per owning change
 ```
 
 Local run: `npx partykit dev` (ws://localhost:1999) and `npm run dev` (http://localhost:5173). Test with two tabs, two browsers, or a second device on the same Wi-Fi.
@@ -289,14 +267,14 @@ The MVP is delivered as five OpenSpec changes. Two of them run in parallel, spli
 | Change | Writes code in | Writes spec(s) in `openspec/specs/` |
 |---|---|---|
 | `scaffold-project` | `package.json`, lockfile, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, ESLint config, `partykit.json`, `index.html`, placeholder `src/main.tsx` and `party/server.ts`, asset folder rename (`brown dice/` → `cannon-dice/`) | `project-setup.md` |
-| `define-game-contracts` | `shared/types.ts`, `shared/constants.ts`, `shared/rules.ts` and `shared/rng.ts` **signatures only** (stubs), `shared/fixtures/` (sample `RoomState`s for every phase) | `realtime-sync.md` (authority, protocol, obligations of both sides) |
+| `define-game-contracts` | `shared/types.ts`, `shared/constants.ts`, `shared/protocol.ts` (implemented), `shared/errors.ts`, `shared/rules.ts` and `shared/rng.ts` **signatures only** (stubs), `shared/fixtures/` (sample `RoomState`s for every phase), `tests/contracts/**` | `realtime-sync.md` (authority, protocol, obligations of both sides) |
 | `build-game-server` | `shared/rules.ts` and `shared/rng.ts` (implementation), `party/**`, `tests/rules/**`, `tests/server/**` | `game-rules.md`, `room-lifecycle.md` |
 | `build-game-client` | `src/**`, `public/**`, `tests/client/**` | `game-ui.md` |
 | `integrate-and-verify` | Any file, limited to integration fixes | MODIFIED sections of the above, where behaviour changes |
 
 ### 9.2 Rules that keep the parallel tracks from conflicting
 
-1. **Contracts first, then frozen.** `define-game-contracts` is archived and merged to `main` before either parallel track starts. During the parallel phase, `shared/types.ts`, `shared/constants.ts`, `shared/fixtures/**`, all config files and `package.json` are **read-only** for both tracks. If a track needs a change, it stops and reports a blocker; the coordinator makes the change on `main` and both tracks rebase.
+1. **Contracts first, then frozen.** `define-game-contracts` is archived and merged to `main` before either parallel track starts. During the parallel phase, `shared/types.ts`, `shared/constants.ts`, `shared/protocol.ts`, `shared/errors.ts`, `shared/fixtures/**`, `tests/contracts/**`, all config files and `package.json` are **read-only** for both tracks, and the signatures in `shared/rules.ts` and `shared/rng.ts` are frozen. If a track needs a change, it stops and reports a blocker; the coordinator makes the change on `main` and both tracks rebase.
 2. **No new dependencies during the parallel phase.** All dependencies are added in `scaffold-project`. A track that needs another one raises a blocker (same process as rule 1).
 3. **Strict file ownership** as in 9.1. A track never edits files owned by the other.
 4. **One git worktree and branch per track:** `../dice-kingdom-clash-online-worktrees/{change-id}` on `feature/{change-id}`, each with its own `npm install`. Nobody works on `main` directly.

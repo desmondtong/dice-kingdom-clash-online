@@ -21,29 +21,32 @@ The project is a local demo: it runs entirely on one laptop. It has no accounts,
 | Database | None. Room state is in memory (persistence is a later iteration) |
 | Identity | Anonymous `playerId` (UUID) in `sessionStorage` plus a nickname; no accounts |
 | Styling | Original `style.css` ported as global CSS, Bootstrap 5.3 CSS from npm (no Bootstrap JS), ZCOOL KuaiLe font from npm (`@fontsource/zcool-kuaile`); no CDN, works offline |
-| Testing | Vitest 5 with two projects: `node` (`tests/rules`, `tests/server`) and `client` (jsdom + Testing Library, `tests/client`) |
+| Testing | Vitest 5 with two projects: `node` (`tests/contracts`, `tests/rules`, `tests/server`) and `client` (jsdom + Testing Library, `tests/client`) |
 | Lint / format | ESLint 10 (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier 3 (Markdown is not auto-formatted) |
 | Package manager | npm, exact versions (`--save-exact`) with a committed `package-lock.json` |
 
 **Registry:** the project `.npmrc` pins the public npm registry (`https://registry.npmjs.org/`), so `package-lock.json` only references public URLs and anyone can run `npm ci`. Do not commit a lockfile generated from a private mirror. If a developer's machine must use another registry, install with `npm ci --registry=<url>` and do not commit lockfile changes from that install.
 
-**TypeScript projects:** `tsconfig.app.json` (browser: `src/`, `shared/`, `tests/client/`, `tests/rules/`), `tsconfig.server.json` (Workers runtime: `party/`, `shared/`, `tests/server/`) and `tsconfig.node.json` (config files). `shared/` must type-check in both the browser and the server context.
+**TypeScript projects:** `tsconfig.app.json` (browser: `src/`, `shared/`, `tests/client/`, `tests/rules/`), `tsconfig.server.json` (Workers runtime: `party/`, `shared/`, `tests/contracts/`, `tests/server/`) and `tsconfig.node.json` (config files). `shared/` must type-check in both the browser and the server context.
 
 ## Architecture
 
-The server is authoritative. Clients send **intents** only (`ready`, `rollPower`, `rollCannon`, `rematch`, `leave`). The server validates each intent against phase, step, seat and `turnId`; it generates all randomness with `crypto.getRandomValues`, applies the rules, runs all timers, and broadcasts versioned `state` snapshots plus `event` messages for animation and sound.
+The server is authoritative. Clients send **intents** only (`ready`, `rollPower`, `rollCannon`, `rematch`, `leave`). The server validates each intent against phase, step, seat and `turnId`; it generates all randomness with `crypto.getRandomValues`, applies the rules, runs all timers, and broadcasts versioned `state` snapshots. Each connection first receives a private `welcome { seat, code }`; no `playerId` is ever broadcast. Animations and sounds are triggered by `state.lastEvent` (there is no separate event message). The contracts are in `shared/` and specified in `openspec/specs/realtime-sync.md`.
 
-Structure (folders created by `scaffold-project`; the files listed under `shared/` and most of `src/` are created by later changes):
+Structure (`shared/` is created by `define-game-contracts`; most of `src/` and `party/` by later changes):
 
 ```
 party/server.ts        # PartyKit room: lifecycle, connection↔seat binding, validation, timers, broadcast
-shared/types.ts        # RoomState, GameEvent, messages, error codes
-shared/constants.ts    # MAX_HP, ROUNDS, POWER_ROUNDS, STEP_MS, resolve windows
-shared/rules.ts        # pure rule functions: (state, rng) → { state, event }
+shared/types.ts        # RoomState, MatchState, GameEvent, Client/ServerMessage, Rng
+shared/constants.ts    # rules, timing, room code, name limit, error codes
+shared/protocol.ts     # parseClientMessage, parseConnectParams, sanitizeName, limitNameInput, makeTurnId
+shared/rules.ts        # pure rule functions: (match, rng) → { match, event }
 shared/rng.ts          # crypto-based dice helpers
+shared/errors.ts       # NotImplementedError for contract stubs
+shared/fixtures/       # sample RoomStates for every phase and step, sample messages
 src/                   # React app: pages/, components/, net/, audio/, styles/
 public/assets/         # original artwork and sounds
-tests/                 # Vitest tests: rules/ and server/ (Node), client/ (jsdom)
+tests/                 # Vitest tests: contracts/, rules/ and server/ (Node), client/ (jsdom)
 ```
 
 ## Coding Conventions
@@ -65,7 +68,7 @@ tests/                 # Vitest tests: rules/ and server/ (Node), client/ (jsdom
 - No global mutable state; prefer `Record<Seat, …>` over string-built keys.
 
 ### Error Handling
-- The server rejects invalid intents with an `error` message `{ code, message }`, using the defined error codes (`ROOM_NOT_FOUND`, `CODE_TAKEN`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `NOT_YOUR_TURN`, `STALE_ACTION`, `INVALID_PHASE`, `REPLACED_BY_NEW_TAB`). It never crashes the room or changes state on an invalid intent.
+- The server rejects invalid intents with an `error` message `{ code, message }`, using the 9 error codes in `shared/constants.ts`. Fatal (the server closes the connection; the client does not auto-reconnect): `ROOM_NOT_FOUND`, `CODE_TAKEN`, `ROOM_FULL`, `GAME_IN_PROGRESS`, `REPLACED_BY_NEW_TAB`. Non-fatal (connection stays open, state unchanged): `NOT_YOUR_TURN`, `STALE_ACTION`, `INVALID_PHASE`, `INVALID_MESSAGE`. `INVALID_MESSAGE` is fatal only for invalid connect parameters. The server never crashes the room or changes state on an invalid intent; all untrusted input goes through `parseClientMessage` / `parseConnectParams`.
 - The client shows a friendly message for each error code and never assumes an intent succeeded until a new state arrives.
 
 ### Testing
@@ -102,7 +105,7 @@ The MVP is delivered as five changes; full details are in `docs/DESIGN.md` secti
 4. `integrate-and-verify` (sequential)
 
 Rules for the parallel phase:
-- Contracts (`shared/types.ts`, `shared/constants.ts`, `shared/fixtures/**`), config files and `package.json` are read-only. If a change to them is needed, raise a blocker; never edit them on a track branch.
+- Contracts (`shared/types.ts`, `shared/constants.ts`, `shared/protocol.ts`, `shared/errors.ts`, `shared/fixtures/**`, `tests/contracts/**`), config files and `package.json` are read-only. `shared/rules.ts` and `shared/rng.ts` signatures are frozen; only `build-game-server` replaces their bodies. If a change to them is needed, raise a blocker; never edit them on a track branch.
 - Each track writes only to the files it owns (DESIGN.md 9.1) and only to its own spec files.
 - Each track works in its own worktree, `../dice-kingdom-clash-online-worktrees/{change-id}`, on `feature/{change-id}`.
 - Dev ports: the server track uses 1999 (PartyKit); the client track uses 5173 (Vite, mocks only).

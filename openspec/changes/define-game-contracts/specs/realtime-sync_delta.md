@@ -17,7 +17,7 @@ The room server owns all game state, all randomness and all timers. Clients send
 #### Scenario: Client cannot choose an outcome
 - GIVEN a match in progress
 - WHEN a client sends a message containing dice values, damage, HP or a power choice
-- THEN the server ignores those fields (or rejects the message as `INVALID_MESSAGE` if the type is unknown)
+- THEN `parseClientMessage` strips those fields (or the message is rejected as `INVALID_MESSAGE` if the type is unknown)
 - AND the outcome is computed only from the server's random number generator
 
 ### Requirement: Identity comes from the connection
@@ -31,7 +31,7 @@ A player's identity and intent are read once from the connection's query paramet
 - AND later messages on that connection act only for that seat
 
 #### Scenario: Invalid connect parameters
-- GIVEN a client connects without a `playerId` or with an unknown `intent`
+- GIVEN a client connects without a `playerId`, with a `playerId` that does not match `PLAYER_ID_PATTERN` (8 to 64 characters of `A-Z a-z 0-9 _ -`), or with an unknown `intent`
 - THEN the server sends `error` with `INVALID_MESSAGE` and closes the connection
 
 ### Requirement: Nickname limit on both sides
@@ -77,7 +77,7 @@ The server accepts an intent only if it is valid for the sender's seat and the c
 - THEN the server replies `INVALID_PHASE` and the state does not change
 
 #### Scenario: Malformed message
-- WHEN a client sends invalid JSON, an unknown `type` or a field of the wrong type
+- WHEN a client sends invalid JSON, a non-object, an unknown `type`, a field of the wrong type, a `turnId` longer than `TURN_ID_MAX_LENGTH` (64), or a message longer than `MAX_MESSAGE_LENGTH` (1024)
 - THEN the server replies `INVALID_MESSAGE`, keeps the connection open and does not change the state
 
 ### Requirement: Duplicate and stale actions
@@ -129,6 +129,20 @@ Both sides use the timing constants from `shared/constants.ts`.
 - GIVEN a roll is accepted
 - THEN the server stays in step `resolving` for `POWER_RESOLVE_MS` or `CANNON_RESOLVE_MS` before advancing
 - AND intents received during `resolving` get `INVALID_PHASE`
+
+#### Scenario: Knockout timing
+- GIVEN a cannon shot brings a tower to 0 HP
+- THEN the match stays in `playing` with step `resolving` for `CANNON_RESOLVE_MS`
+- AND then moves to `finished` with reason `ko`, so both players see the final hit before the result
+
+#### Scenario: Skipped turn
+- GIVEN the Cannon step times out
+- THEN the server sets `lastEvent` to a `turnSkipped` event and moves straight to the next turn, with no resolving window
+
+#### Scenario: Countdown
+- GIVEN both players are ready
+- THEN the phase becomes `countdown` with `countdownEndsAt` = now + `COUNTDOWN_MS` and the new match in `match`
+- AND when the countdown ends, the phase becomes `playing` and the first step's timer starts
 
 ### Requirement: Error codes
 

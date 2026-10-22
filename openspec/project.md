@@ -12,21 +12,28 @@ The project is a local demo: it runs entirely on one laptop. It has no accounts,
 
 | Layer | Technology |
 |-------|------------|
-| Client framework | React + Vite + TypeScript |
-| Realtime / authoritative server | PartyKit (local `partykit dev`), one room instance per room code |
-| Client networking | `partysocket` (WebSocket with auto-reconnect) |
+| Runtime | Node.js 26.2.0 (pinned in `.nvmrc`; `engines.node` `>=22.12`) |
+| Client framework | React 19 + Vite 8 + TypeScript 6.0 (TypeScript 7 is not yet supported by `typescript-eslint`) |
+| Routing | React Router 8 (`react-router`) |
+| Realtime / authoritative server | PartyKit 0.0.115 (local `partykit dev` on port 1999), one room instance per room code |
+| Client networking | `partysocket` 1.3 (WebSocket with auto-reconnect; React hook `partysocket/react`) |
 | State management | Server-owned `RoomState`; the client renders server snapshots (React state/hooks only, no client state library) |
 | Database | None. Room state is in memory (persistence is a later iteration) |
 | Identity | Anonymous `playerId` (UUID) in `sessionStorage` plus a nickname; no accounts |
-| Styling | Original `style.css` ported as global CSS, Bootstrap 5.3 CSS (no Bootstrap JS), ZCOOL KuaiLe font |
-| Testing | Vitest (unit tests for the rules engine and server logic) |
-| Package manager | npm |
+| Styling | Original `style.css` ported as global CSS, Bootstrap 5.3 CSS from npm (no Bootstrap JS), ZCOOL KuaiLe font from npm (`@fontsource/zcool-kuaile`); no CDN, works offline |
+| Testing | Vitest 5 with two projects: `node` (`tests/rules`, `tests/server`) and `client` (jsdom + Testing Library, `tests/client`) |
+| Lint / format | ESLint 10 (flat config, typescript-eslint, react-hooks, react-refresh) + Prettier 3 (Markdown is not auto-formatted) |
+| Package manager | npm, exact versions (`--save-exact`) with a committed `package-lock.json` |
+
+**Registry:** the project `.npmrc` pins the public npm registry (`https://registry.npmjs.org/`), so `package-lock.json` only references public URLs and anyone can run `npm ci`. Do not commit a lockfile generated from a private mirror. If a developer's machine must use another registry, install with `npm ci --registry=<url>` and do not commit lockfile changes from that install.
+
+**TypeScript projects:** `tsconfig.app.json` (browser: `src/`, `shared/`, `tests/client/`, `tests/rules/`), `tsconfig.server.json` (Workers runtime: `party/`, `shared/`, `tests/server/`) and `tsconfig.node.json` (config files). `shared/` must type-check in both the browser and the server context.
 
 ## Architecture
 
 The server is authoritative. Clients send **intents** only (`ready`, `rollPower`, `rollCannon`, `rematch`, `leave`). The server validates each intent against phase, step, seat and `turnId`; it generates all randomness with `crypto.getRandomValues`, applies the rules, runs all timers, and broadcasts versioned `state` snapshots plus `event` messages for animation and sound.
 
-Planned structure (it is created by the first change proposal and does not exist yet):
+Structure (folders created by `scaffold-project`; the files listed under `shared/` and most of `src/` are created by later changes):
 
 ```
 party/server.ts        # PartyKit room: lifecycle, connection↔seat binding, validation, timers, broadcast
@@ -36,7 +43,7 @@ shared/rules.ts        # pure rule functions: (state, rng) → { state, event }
 shared/rng.ts          # crypto-based dice helpers
 src/                   # React app: pages/, components/, net/, audio/, styles/
 public/assets/         # original artwork and sounds
-tests/                 # Vitest tests
+tests/                 # Vitest tests: rules/ and server/ (Node), client/ (jsdom)
 ```
 
 ## Coding Conventions
@@ -68,15 +75,17 @@ tests/                 # Vitest tests
 
 ## Quality Gates
 
-The scaffold change will define these npm scripts:
-
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # ESLint
-npm test            # Vitest
+npm run typecheck      # tsc -b (client, server and config projects)
+npm run lint           # ESLint
+npm test               # Vitest (all projects, single run)
+npm run format:check   # Prettier
+npm run build          # type-check + production client build
 ```
 
-All three must pass before any commit that completes an OpenSpec phase, and before archiving.
+All five must pass before any commit that completes an OpenSpec phase, and before archiving.
+
+Agents running npm on the laptop use `--cache /tmp/npm-cache-dkc` (their sandboxed terminal cannot write to `~/.npm`). Developers use npm normally.
 
 ## Git Conventions
 - Default branch: `main`

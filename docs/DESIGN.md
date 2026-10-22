@@ -222,13 +222,13 @@ Both players see the board from the same left/right layout (P1 left, P2 right), 
 - Keep **Bootstrap 5.3 CSS** for the original look; drop Bootstrap JS (React handles modals).
 
 ### 7.3 Assets
-Copy everything from `Assets/` into `public/assets/`. Folders with spaces are renamed (`brown dice/` → `cannon-dice/`) to avoid URL encoding issues.
+All files from the original `Assets/` folder are in `public/assets/`. The only folder with a space in its name was renamed (`brown dice/` → `cannon-dice/`, done in `scaffold-project`) to avoid URL encoding issues.
 
 | Asset | Used for |
 |---|---|
 | `start-menu.png`, `name-logo.png` | Home background and title |
 | `dice/dice-1..6.png` | Tower blocks (1 die = 1 HP) |
-| `brown dice/1..6.png` | Cannon dice |
+| `cannon-dice/1..6.png` | Cannon dice |
 | `cannon.png` | Cannon graphic |
 | `power-dice/{shield,ricochet,heal,swap}-dice.png` | Power deck and status icons |
 | `game-music.mp3` | BGM (loop, volume 0.2, starts after first click) |

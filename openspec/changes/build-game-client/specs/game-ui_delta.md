@@ -75,7 +75,9 @@ Source: DESIGN.md 3, 4 and 7, D3, D10, D19, the client obligations in `openspec/
 
 #### Scenario: Animations fit the windows
 - THEN a Power reveal finishes within `POWER_RESOLVE_MS` and a cannon roll plus tower crumble within `CANNON_RESOLVE_MS`
-- AND the HP shown changes when the hit lands
+- AND the HP shown changes when the hit lands; prior authoritative towers are retained through unrelated snapshots until that cue, never reconstructed from damage
+- AND the Power shuffle uses `POWER_RESOLVE_MS × 0.6`, the cannon impact uses `CANNON_RESOLVE_MS × 0.4`, and the hit sound shares that impact cue
+- AND a direct resolving snapshot with no prior snapshot renders the supplied HP immediately
 
 #### Scenario: Background music
 - THEN BGM starts only after the player's first click and loops at volume 0.2
@@ -124,6 +126,7 @@ Source: DESIGN.md 3, 4 and 7, D3, D10, D19, the client obligations in `openspec/
 - GIVEN a development build
 - THEN `?mock=<fixtureName>&seat=1|2` renders that fixture, `?mock=demo` plays a scripted match, and `/dev/fixtures` lists every fixture
 - AND none of these exist in a production build
+- AND this parallel track defaults to the scripted mock for ordinary development create/join flows; production selects the real PartySocket adapter, and real development integration belongs to `integrate-and-verify`
 
 ---
 

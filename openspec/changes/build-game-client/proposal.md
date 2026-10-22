@@ -2,7 +2,8 @@
 
 **Change ID:** `build-game-client`
 **Created:** 2026-10-22
-**Status:** Approved (all decisions confirmed 2026-10-22: C-DEC-1 to C-DEC-7, option (a) each)
+**Status:** Implementation Complete (approved decisions C-DEC-1 to C-DEC-7 retained)
+**Completed:** 2026-10-22
 **Track:** parallel, client (runs alongside `build-game-server`; see DESIGN.md 9)
 
 ---
@@ -112,15 +113,15 @@ These are behaviours the contracts imply but do not spell out. Both tracks build
 
 ## Success Criteria
 
-- [ ] Every fixture in `shared/fixtures/` renders the correct screen for both seats without errors (one test per fixture and seat).
-- [ ] Buttons are enabled only when allowed: Ready (lobby, both seats, not yet ready), Power deck (my turn, step `power`), Roll (my turn, step `cannon`), Rematch (finished, opponent present, not yet voted); disabled while `resolving` and after a click until a newer snapshot.
-- [ ] Reducer tests: stale `version` ignored, `lastEvent` animated once and not replayed after reconnect, clock offset applied, fatal errors stop reconnecting, non-fatal errors keep the latest state.
-- [ ] The nickname input never holds more than 12 characters, emoji included.
-- [ ] Every error code has a friendly message.
-- [ ] `?mock=demo` plays from countdown through a full match to the result screen with animations and sounds, and Rematch starts the next match.
-- [ ] No outcome logic on the client: no `Math.random` in `src/**`, and no dice, damage or HP is computed client-side.
-- [ ] No frozen or server-owned file changed (`git diff main --stat -- shared party tests/contracts tests/rules tests/server package.json package-lock.json *.config.* tsconfig*.json partykit.json` is empty).
-- [ ] All five quality gates pass.
+- [x] Every fixture in `shared/fixtures/` renders the correct screen for both seats without errors (one test per fixture and seat).
+- [x] Buttons are enabled only when allowed: Ready (lobby, both seats, not yet ready), Power deck (my turn, step `power`), Roll (my turn, step `cannon`), Rematch (finished, opponent present, not yet voted); disabled while `resolving` and after a click until a newer snapshot.
+- [x] Reducer tests: stale `version` ignored, `lastEvent` animated once and not replayed after reconnect, clock offset applied, fatal errors stop reconnecting, non-fatal errors keep the latest state.
+- [x] The nickname input never holds more than 12 characters, emoji included.
+- [x] Every error code has a friendly message.
+- [x] `?mock=demo` plays from countdown through a full match to the result screen with animations and sounds, and Rematch starts the next match.
+- [x] No outcome logic on the client: no `Math.random` in `src/**`, and no dice, damage or HP is computed client-side.
+- [x] No frozen or server-owned file changed (`git diff main --stat -- shared party tests/contracts tests/rules tests/server package.json package-lock.json *.config.* tsconfig*.json partykit.json` is empty).
+- [x] All five quality gates pass.
 
 ## Risks & Mitigations
 

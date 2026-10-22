@@ -69,10 +69,10 @@
 
 - [x] 5.1 Confirm no frozen or server-owned file changed (see the success criteria command), and no `Math.random` in `src/**`
 - [x] 5.2 Sync the delta spec with what was built; record deviations and findings in Implementation Notes
-- [ ] 5.3 Rebase onto `main` (after the server track is merged, if it already is), run all five gates, push `feature/build-game-client`
-- [ ] 5.4 Report to the coordinator for review and archive (client is merged after the server)
+- [x] 5.3 Rebase onto `main` (after the server track is merged, if it already is), run all five gates, push `feature/build-game-client`
+- [x] 5.4 Report to the coordinator for review and archive (client is merged after the server)
 
-**Quality Gate (final):** `npm run typecheck`, `npm run lint`, `npm test`, `npm run format:check`, `npm run build`
+**Quality Gate (final):** PASSED after rebase onto coordinator `main` (`c734a8d`) — `npm run typecheck`, `npm run lint`, `npm test` (364 tests in 14 files), `npm run format:check`, `npm run build`. Branch pushed for coordinator review; no merge or archive.
 
 ## Track notes
 

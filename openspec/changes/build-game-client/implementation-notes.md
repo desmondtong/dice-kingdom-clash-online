@@ -35,3 +35,11 @@ The In-App Browser opened all 17 frozen fixtures for seats 1 and 2 (34 views). C
 Audio event mapping, impact/reveal timing, overlap safety, BGM first-click unlock/loop/volume, and cleanup are verified with mocked Audio. The browser click path exercises unlock; audible output cannot be assessed from browser screenshots, so no listening claim is made.
 
 The coordinator advanced `main` during implementation with the integration proposal and a contract-test cleanup. The worktree-only frozen-path diff was empty before rebase. Those coordinator commits are incorporated by rebase rather than manually editing frozen files. No merge or archive is performed on this track.
+
+## Coordinator handoff
+
+The client implementation commit is `24b83de6a4add98973a066a0f4a099e265753031`, rebased onto coordinator `main` commit `c734a8d`. All five gates passed again after the rebase: 364 tests in 14 files, clean typecheck/lint/format, and successful production build. The complete diff against that `main` includes only `src/**`, `tests/client/**`, and this change folder; every frozen/server-owned path has an empty diff. `src/**` contains no `Math.random`.
+
+`feature/build-game-client` was successfully pushed to `origin` with its upstream set. The completion documentation is committed and pushed separately. No PR, merge, or archive was performed. The Vite-only verification service is stopped after testing to free port 5173 for the integration track.
+
+For local client inspection, use the existing pinned Node runtime and `npm --cache /tmp/npm-cache-dkc run dev:client -- --host 127.0.0.1 --port 5173 --strictPort`, then open `/dev/fixtures` or `/room/KX7P?mock=demo&seat=1` (also seat 2). Do not use the combined `npm run dev` on this track because it starts PartyKit. The real adapter remains fake-tested only; network integration belongs to the next approved change.

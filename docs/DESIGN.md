@@ -1,6 +1,6 @@
 # Dice Kingdom Clash Online: Multiplayer Design and Roadmap
 
-**Status:** Design revision 2 (approved decisions included). No implementation yet.
+**Status:** Design revision 3 (all open questions resolved). No implementation yet.
 
 This document turns the original single-screen *Dice Kingdom Clash* ([repo](https://github.com/desmondtong/Game-Project-Dice-Kingdom-Clash), HTML/CSS/JS, two players sharing one screen) into a real-time, two-player networked game. The client is React (Vite + TypeScript) and the authoritative room server is PartyKit, both running locally on a laptop.
 
@@ -19,6 +19,9 @@ This document turns the original single-screen *Dice Kingdom Clash* ([repo](http
 | D9 | Original code | Use it as a **rules reference only**. Do not copy-paste; rewrite as typed, state-driven, refactored modules (section 3) |
 | D10 | Art, styling, sound | **Use the original assets and styling** (images, sounds, BGM, colours, ZCOOL KuaiLe font, layout) for the MVP; optimise later |
 | D11 | Out of MVP | Network latency compensation, disconnect grace period and forfeit, persistence (section 10) |
+| D12 | Heal amount | **Keep the original roll** `max(ceil(rand × 20), 10)`: 10 HP 50% of the time, 11–20 HP 5% each (average 12.75 HP) |
+| D13 | Power step timeout | The server **auto-rolls** the Power Dice |
+| D14 | Leave button | Clicking Leave during a match ends it at once and the **remaining player wins** (reason `left`). A disconnect or refresh is *not* a leave: the seat is held, and the grace-period forfeit is in the next iteration |
 
 ## 1. Game rules (canonical spec)
 
@@ -43,7 +46,7 @@ These rules are taken from the original `script.js` and written down precisely, 
 | **Heal** | Your tower regains HP, capped at 50 | Instant |
 | **Swap** | The two towers swap HP. Shield and Ricochet stay with their original owners | Instant |
 
-Heal amount **(changed, proposed)**: a uniform whole number from 10 to 20. The original, `Math.max(Math.ceil(Math.random()*20), 10)`, gives exactly 10 HP 50% of the time, which was probably unintended. See open question Q1.
+Heal amount (same as the original, D12): roll a whole number from 1 to 20 and raise it to at least 10, i.e. `max(ceil(rand × 20), 10)`. This gives 10 HP 50% of the time and 11–20 HP 5% each (average 12.75 HP). The result is still capped at 50 HP.
 
 ### 1.4 Resolving an attack (order matters)
 1. **Target**: if the attacker is under Ricochet, the target is the attacker's own tower and Ricochet is consumed; otherwise the target is the opponent's tower.
@@ -54,7 +57,7 @@ Heal amount **(changed, proposed)**: a uniform whole number from 10 to 20. The o
 ### 1.5 End of match
 - KO: the player whose tower is still standing wins (reason `ko`).
 - After the second player's turn in round 8: **higher HP wins**; equal HP is a tie (reason `rounds`) **(changed)**.
-- A player leaves during the match: the match ends (reason `left`). See section 6.
+- A player clicks Leave during the match: the match ends at once and the **remaining player wins** (reason `left`, D14). See section 6.
 
 ## 2. Architecture
 
@@ -153,7 +156,7 @@ The original code works for a shared screen, but its structure does not suit an 
 | `Math.random()` in the browser for all rolls | Open to cheating online | Server-side `crypto.getRandomValues` with a small `rollDie()` helper |
 | Each tower re-render generates new random dice faces | Faces flicker, and would differ between the two screens | Faces are seeded from `towerSeed` + seat + index, so they are stable and identical on both screens |
 | Swap moves the tower `innerHTML` between players | Visual and data swapped together | Swap changes `hp` only; the tower view re-renders from HP |
-| Heal distribution skews to 10 (see 1.3) | Probably unintended balance | Uniform 10–20 (pending Q1) |
+| Heal roll written inline with `Math.random()` | Not testable; client-side | Same distribution (D12) in `rng.healAmount()` on the server's RNG, unit-tested |
 | After round 8, always "IT'S A TIE!" | Ignores HP | Higher HP wins (D5) |
 | Bootstrap JS modals opened manually | Imperative; conflicts with React | React modal components that reuse the Bootstrap CSS classes, so they look the same |
 | `new Audio()` objects replayed while already playing | Overlapping plays get dropped | A small `sfx.play(name)` helper that resets or clones the sound; BGM starts after the first user click (browser autoplay rules) |
@@ -197,7 +200,7 @@ LOBBY ──(both ready)──▶ COUNTDOWN (3-2-1) ──▶ PLAYING ──(KO 
 |---|---|
 | **Refresh** | Reconnect with the same `playerId` (sessionStorage) to the room code in the URL; receive the snapshot; the match continues |
 | **Temporary disconnect** | `partysocket` reconnects automatically. The opponent sees "Opponent disconnected, reconnecting…". The turn timer keeps running, so an absent player loses turns to timeouts and cannot stall the match |
-| **Leave button** | Sends `leave` and frees the seat. If a match was running it ends (reason `left`), and the remaining player is shown "Opponent left" and returned to the lobby as host to invite someone new |
+| **Leave button** | Sends `leave` and frees the seat. If a match was running, it ends at once and the **remaining player wins** (reason `left`, D14). The remaining player sees the result ("Opponent left, you win"), then returns to the lobby as host to invite someone new |
 | **Joining mid-game** | Rejected with `GAME_IN_PROGRESS` and a friendly message |
 | **Play again** | Both press Rematch (each player can see the other's vote). Towers reset to 50 HP, round 1, first seat alternates |
 | **Host leaves the lobby** | The remaining player becomes host |
@@ -209,7 +212,7 @@ LOBBY ──(both ready)──▶ COUNTDOWN (3-2-1) ──▶ PLAYING ──(KO 
 2. **How To Play**: a modal rewritten from the original Tutorial content, with rule 1.2.3 and D5 updated.
 3. **Lobby** (`/room/:code`): large room code, Copy invite link, two player cards (name, connected, ready), Ready button.
 4. **Game**: the original layout: both towers made of dice faces with HP, `cannon.png` and the brown cannon dice equation (`A × B = ?`), the 8-round counter, the Power Dice deck (4 dice, with the chosen one highlighted), Shield/Ricochet status icons, the turn banner, the 10-second timer and the action message line. **Additions for online play**: a "You" marker on your own side, "Your turn" / "Opponent's turn" in the banner, an opponent connection dot, and a Leave button.
-5. **Result**: the original result modal plus the reason (KO / rounds / opponent left), final HP, Rematch with the opponent's vote status, and Back to Home.
+5. **Result**: the original result modal plus the reason (KO / rounds / opponent left), final HP, Rematch with the opponent's vote status (hidden when the opponent has left), and Back to Home.
 
 Both players see the board from the same left/right layout (P1 left, P2 right), so it matches the original. "Your side" is highlighted.
 
@@ -279,7 +282,7 @@ Local run: `npx partykit dev` (ws://localhost:1999) and `npm run dev` (http://lo
 ## 10. Next iteration / good-to-have
 
 - **Network latency handling**: an instant local "rolling…" animation on click before the server replies; a ping indicator.
-- **Disconnect grace period and forfeit**: e.g. 30 seconds of grace, then the connected player wins by forfeit.
+- **Disconnect grace period and forfeit**: a timer starts when a player disconnects (e.g. 30 s) and is cancelled if they reconnect; when it expires, the connected player wins (reason `forfeit`). Covers closed laptops and lost Wi-Fi; a refresh reconnects well within the grace period.
 - **Persistence**: room state in `room.storage` so it survives a server restart; room expiry and cleanup.
 - **Decide who goes first** with a mini-game (pick a card or a dice-roll-off) instead of D7.
 - **More player agency**: e.g. hold a Power Dice and choose when to use it, or one re-roll per match.
@@ -289,8 +292,4 @@ Local run: `npx partykit dev` (ws://localhost:1999) and `npm run dev` (http://lo
 
 ## 11. Open questions
 
-| # | Question | Proposed default |
-|---|---|---|
-| Q1 | Heal amount: keep the original skewed roll (10 HP half the time, otherwise 11–20) or use a uniform 10–20? | Uniform 10–20 |
-| Q2 | Power step timeout: auto-roll the Power Dice (proposed) or skip it? | Auto-roll |
-| Q3 | Player leaves mid-match: just end the match ("Opponent left"), or record it as a win for the remaining player? | End the match and show "Opponent left"; formal forfeit comes with the grace-period work |
+None. Q1 to Q3 have been resolved as D12 to D14.

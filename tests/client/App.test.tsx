@@ -8,11 +8,15 @@ const sounds = vi.hoisted(() => ({
   dispose: vi.fn(),
 }));
 vi.mock("../../src/audio/sfx.ts", () => ({ createSfx: () => sounds }));
+// The real connection is the default; this inert fake keeps tests off the network.
 vi.mock("partysocket", () => ({
   default: class {
-    constructor() {
-      throw new Error("Tests must not open a real socket");
-    }
+    readyState = 0;
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+    reconnect() {}
   },
 }));
 beforeEach(() => {

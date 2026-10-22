@@ -10,12 +10,15 @@ import {
 import { generateRoomCode, getPlayerId, hasJoinedRoom, rememberRoom } from "./identity.ts";
 import { canSendIntent, initialRoomStore, roomReducer } from "./roomStore.ts";
 
-/** This track defaults to the scripted mock in development. Integration changes this selector. */
+/**
+ * The real room server is the default. In development builds only, `?mock=<fixture|demo>`
+ * switches to the fixture-driven mock (C-DEC-1).
+ */
 const createDefaultConnection: ConnectionFactory = (options) => {
-  if (import.meta.env.DEV) {
+  const params = new URLSearchParams(window.location.search);
+  if (import.meta.env.DEV && params.has("mock")) {
     let disposed = false;
     let connection: RoomConnection | undefined;
-    const params = new URLSearchParams(window.location.search);
     void import("./mock/mockConnection.ts")
       .then(({ createMockFactory }) => {
         if (!disposed)

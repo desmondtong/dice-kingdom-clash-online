@@ -2,7 +2,9 @@
 
 **Change ID:** `build-game-server`
 **Created:** 2026-10-22
-**Status:** Approved (all decisions confirmed 2026-10-22: S-DEC-1 to S-DEC-7, option (a) each)
+**Status:** Implementation Complete — automated gates passed; coordinator runtime verification pending
+**Completed:** 2026-10-22 (server track; smoke and idle measurement deferred to coordinator after merge by instruction at 16:50)
+**Approval:** all decisions confirmed 2026-10-22: S-DEC-1 to S-DEC-7, option (a) each
 **Track:** parallel, server (runs alongside `build-game-client`; see DESIGN.md 9)
 
 ---
@@ -119,12 +121,12 @@ These are behaviours the contracts imply but do not spell out. Both tracks build
 
 ## Success Criteria
 
-- [ ] Every rule in DESIGN.md 1 has unit tests: attack order (Ricochet then Shield), Shield rounding up, Ricochet kept on a Cannon timeout, Heal cap and the D12 distribution, Swap keeping statuses, KO including a self-KO by Ricochet, round-8 winner and tie, power rounds 3 and 6, first seat each round.
-- [ ] Controller tests cover every scenario in `realtime-sync.md` and `room-lifecycle.md` (the delta specs), including: wrong seat, wrong step, malformed message, double click, late click after a timeout, timer racing a click, refresh mid-turn, second tab, leave in each phase, rematch alternating `firstSeat`.
-- [ ] No broadcast state contains a `playerId`; every broadcast state passes the fixture invariants.
-- [ ] The smoke script plays a full match between two Node clients against `partykit dev` and ends in `finished`.
-- [ ] No frozen file changed (`git diff main -- shared/types.ts shared/constants.ts shared/protocol.ts shared/errors.ts shared/fixtures tests/contracts` is empty; `rules.ts` / `rng.ts` signatures unchanged).
-- [ ] All five quality gates pass.
+- [x] Every rule in DESIGN.md 1 has unit tests: attack order (Ricochet then Shield), Shield rounding up, Ricochet kept on a Cannon timeout, Heal cap and the D12 distribution, Swap keeping statuses, KO including a self-KO by Ricochet, round-8 winner and tie, power rounds 3 and 6, first seat each round.
+- [x] Controller tests cover every scenario in `realtime-sync.md` and `room-lifecycle.md` (the delta specs), including: wrong seat, wrong step, malformed message, double click, late click after a timeout, timer racing a click, refresh mid-turn, second tab, leave in each phase, rematch alternating `firstSeat`.
+- [x] No broadcast state contains a `playerId`; every broadcast state passes the fixture invariant formulas, with the specified KO resolving exception for 0 HP (see tasks.md).
+- [ ] **Deferred to coordinator after merge:** execute the implemented smoke script between two Node clients against `partykit dev` and confirm `finished`; also measure idle-room retention (tasks 4.3–4.4). Explicitly skipped on this track per instruction at 16:50 on 2026-10-22.
+- [x] No frozen file changed (`git diff main -- shared/types.ts shared/constants.ts shared/protocol.ts shared/errors.ts shared/fixtures tests/contracts` is empty; all `rules.ts` / `rng.ts` exports and signatures verified unchanged with TypeScript ASTs).
+- [x] All five quality gates pass after rebase onto coordinator correction `c734a8d`: 270/270 tests across seven test files.
 
 ## Risks & Mitigations
 

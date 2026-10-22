@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+.partykit
+public
+package-lock.json
+# Markdown docs and OpenSpec files are hand-formatted
+*.md

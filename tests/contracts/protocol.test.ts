@@ -15,8 +15,6 @@ import {
   parseConnectParams,
   sanitizeName,
 } from "../../shared/protocol.ts";
-import { startMatch } from "../../shared/rules.ts";
-import { createCryptoRng } from "../../shared/rng.ts";
 
 describe("parseClientMessage", () => {
   it.each([
@@ -172,13 +170,16 @@ describe("small helpers", () => {
   });
 });
 
-describe("stubs", () => {
-  it("throw NotImplementedError naming the function and the owning change", () => {
-    expect(() => startMatch({ number: 1, firstSeat: 1, towerSeed: 1 })).toThrow(
-      NotImplementedError,
+describe("NotImplementedError", () => {
+  // The rules/RNG stubs are implemented by build-game-server, so this checks the
+  // error class itself rather than any stub.
+  it("names the function and the owning change", () => {
+    const err = new NotImplementedError("createCryptoRng");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("NotImplementedError");
+    expect(err.message).toBe(
+      "createCryptoRng is not implemented yet (implemented in build-game-server)",
     );
-    expect(() => createCryptoRng()).toThrow(
-      /createCryptoRng is not implemented yet \(implemented in build-game-server\)/,
-    );
+    expect(new NotImplementedError("x", "build-game-client").message).toMatch(/build-game-client/);
   });
 });
